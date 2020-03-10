@@ -8,5 +8,7 @@
 
 import Foundation
 
-print("Hello, World!")
+let connQueue = DispatchQueue(label: "Connection Queue")
+let procQueue = DispatchQueue(label: "Process Queue")
+let semaphore = DispatchSemaphore(value: 1)
 

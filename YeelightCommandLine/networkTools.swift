@@ -10,11 +10,6 @@ import Foundation
 import Network
 
 
-
-
-
-
-
 // Get the local port opened to send
 // Return nil if no hostPort connection found
 func getLocalPort(fromConnection conn: NWConnection) -> NWEndpoint.Port? {
@@ -31,38 +26,7 @@ func getLocalPort(fromConnection conn: NWConnection) -> NWEndpoint.Port? {
 }
 
 
-func udpReplyHandler(newConn conn: NWConnection) -> Data? {
-    // starts connection
-    // receives data from connection
-    // if complete, cancels the connection
-    // returns data.  Returns nil if error.
-    var receivedData: Data
-    var returnData: Bool = false
-    
-    conn.start(queue: connQueue)
-    
-    conn.receive(minimumIncompleteLength: 1, maximumLength: 65536, completion: { (data, _, isComplete, _) in
-        // data, defaultMessage, isComplete, errors (enum dns posix tcl)
-        
-        if let data: Data = data, !data.isEmpty {
-            receivedData = data
-            returnData = true
-        }
-        
-        if isComplete == true {
-            // Won't need UDP connection with the light anymore
-            conn.cancel()
-        }
-        
-        // Handle NW errors?
-    })
-    
-    if returnData == true {
-        return receivedData
-    } else {
-        return nil
-    }
-}
+
 
 
 //print(String(data: data, encoding: .utf8)!)
@@ -77,25 +41,22 @@ procQueue.async(qos: .userInitiated) {
 
 
 
-// Listen for reply from multicast
-func udpListenReply(onPort port: NWEndpoint.Port) -> [Data] {
-    var allReplies: [Data] = []
-    
-    if let listener = try? NWListener(using: NWParameters.udp, on: port) {
-        listener.newConnectionHandler = { (newConn) in
-            let data = udpReplyHandler(newConn: newConn)
-            
-            if let data = data {
-                allReplies.append(data)
-            }
-            
-        }
-        
-        listener.start(queue: connQueue)
+// connection state handler
+udpConn.stateUpdateHandler = { (newState) in
+    switch(newState) {
+    case .setup:
+        print("Setting up!")
+    case .preparing:
+        print("Preparing!")
+    case .ready:
+        print("Ready!")
+    case .waiting:
+        print("Waiting!")
+    case .failed:
+        print("Failed!")
+    case .cancelled:
+        print("Cancelled!")
     }
-    
-    // If everything fails, will return empty array
-    return allReplies
 }
 
 

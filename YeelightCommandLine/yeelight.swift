@@ -46,10 +46,12 @@ import Network
 public struct State {
     let ip: String  // var?  If re-discover lights?
     let port: Int  // var?  If re-discover lights?
+    let server: String
     let idSerial: String
     
     let model: String
     let fw_ver: String
+    let support: String
     
     var power: Bool
     var brightness: Int
@@ -68,27 +70,121 @@ public class Yeelight {
     // no init func yet
     
     public func discover() {
+        // enter expected number of lights to find?
+        // or find them all, then prompt if it looks right
+        
         let multicastHost: NWEndpoint.Host = "239.255.255.250"
         let multicastPort: NWEndpoint.Port = 1982
         let searchMsg: String = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb"
         let searchBytes = searchMsg.data(using: .utf8)
         
         // Setup UDP connection
-        let udpConn = NWConnection(host: multicastHost, port: multicastPort, using: NWParameters.udp)
+        let udpConn = NWConnection(host: multicastHost, port: multicastPort, using: .udp)
         
-        func extractData() -> Void {
-            // Handle the data extracted into 
+        
+        
+    
+        
+        
+        func parseData(Decoded decoded: String) {
+            // parse the information received into struct
+            let decoded = decoded
+            let unwanted: String = "HTTP/1.1 200 OK\r\nCache-Control: max-age=3600\r\nDate: \r\nExt: \r\nLocation: yeelight://"
+            let cleaned: String = decoded.replacingOccurrences(of: unwanted, with: "")
+            let listProperties: [String] = cleaned.components(separatedBy: "\r\n")
+            
+            do {
+                for i in listProperties {
+                    let keyValue: [String] = i.components(separatedBy: ":")
+                    // do the thing!
+                }
+                // try to initialise new light and append
+                try throwing expression
+            } catch <#pattern#> {
+                <#statements#>
+            }
+            
+            
         }
         
         
+        // reads data array and stores meaningful light information
+        func extractData(Received array: [Data]) {
+            // convert data into string
+            // manipulate string into separate data properties
+            let array: [Data] = array
+            var decoded: [String] = []
+            
+            for i in array {
+                if let i: String = String(data: i, encoding: .utf8) {
+                    decoded.append(i)
+                }
+            }
+            
+            
+        }
+        
+        
+        // handles replies received from lights with listener
+        func udpReplyHandler(newConn conn: NWConnection) -> Data? {
+            // starts connection
+            // receives data from connection
+            // if complete, cancels the connection
+            // returns data.  Returns nil if error.
+            var receivedData: Data
+            var returnData: Bool = false
+            
+            conn.start(queue: connQueue)
+            
+            conn.receive(minimumIncompleteLength: 1, maximumLength: 65536, completion: { (data, _, _, _) in
+                // data, defaultMessage, isComplete, errors (enum dns posix tcl)
+                
+                if let data: Data = data, !data.isEmpty {
+                    receivedData = data
+                    returnData = true
+                    // won't need the connection anymore
+                    conn.cancel()
+                }
+                // Handle NW errors?
+            })
+            
+            if returnData == true {
+                return receivedData
+            } else {
+                return nil
+            }
+        }
+        
+        
+        // Listen for reply from multicast
+        func udpListenReply(onPort port: NWEndpoint.Port) -> [Data] {
+            var allReplies: [Data] = []
+            
+            if let listener = try? NWListener(using: .udp, on: port) {
+                listener.newConnectionHandler = { (newConn) in
+                    let data = udpReplyHandler(newConn: newConn)
+                    
+                    if let data = data {
+                        allReplies.append(data)
+                    }
+                }
+                listener.start(queue: connQueue)
+            }
+            
+            // If everything fails, will return empty array
+            return allReplies
+        }
+        
+        
+        
         // Setup procedure to do when search message is sent
-        // get local port
-        // listen for replies from lights on that port
-        // dump data into array
         let sendSearchCompletion = NWConnection.SendCompletion.contentProcessed { (NWError) in
+            // get local port
+            // listen for replies from lights on that port
+            // dump data into array
             if NWError == nil {
                 if let localPort = getLocalPort(fromConnection: udpConn) {
-                    let replyArray = udpListenReply(onPort: localPort)
+                    let dataArray: [Data] = udpListenReply(onPort: localPort)
                 }
             }
             //if let NWError = NWError {
@@ -100,59 +196,12 @@ public class Yeelight {
         udpConn.start(queue: connQueue)
         
         
-        
+        // Send search message and handle replies
+        udpConn.send(content: searchBytes, completion: sendSearchCompletion)
         
     }
     
 
-    
-
-    
-    
 }
 
-
-
-
-// connection state handler
-udpConnection.stateUpdateHandler = { (newState) in
-    switch(newState) {
-    case .setup:
-        print("Setting up!")
-    case .preparing:
-        print("Preparing!")
-    case .ready:
-        print("Ready!")
-    case .waiting:
-        print("Waiting!")
-    case .failed:
-        print("Failed!")
-    case .cancelled:
-        print("Cancelled!")
-    }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-udpConnection.send(content: searchBytes, completion: sendSearchCompletion)
-
-
-testQueue.async(qos: .background) {
-    udpConnection.cancel()
-}
 

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		6425FE4E2418A3C2007E5B5E /* errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6425FE4D2418A3C2007E5B5E /* errors.swift */; };
 		6429F0AD241760190013AD8B /* networkTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6429F0AC241760190013AD8B /* networkTools.swift */; };
 		64BB9ADF241642E500825D95 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BB9ADE241642E500825D95 /* main.swift */; };
 		64BB9AE62416B46600825D95 /* yeelight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BB9AE52416B46600825D95 /* yeelight.swift */; };
@@ -25,6 +26,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		6425FE4D2418A3C2007E5B5E /* errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = errors.swift; sourceTree = "<group>"; };
 		6429F0AC241760190013AD8B /* networkTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = networkTools.swift; sourceTree = "<group>"; };
 		64BB9ADB241642E500825D95 /* YeelightCommandLine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = YeelightCommandLine; sourceTree = BUILT_PRODUCTS_DIR; };
 		64BB9ADE241642E500825D95 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
@@ -63,6 +65,7 @@
 			children = (
 				64BB9ADE241642E500825D95 /* main.swift */,
 				64BB9AE52416B46600825D95 /* yeelight.swift */,
+				6425FE4D2418A3C2007E5B5E /* errors.swift */,
 				6429F0AC241760190013AD8B /* networkTools.swift */,
 			);
 			path = YeelightCommandLine;
@@ -125,6 +128,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6425FE4E2418A3C2007E5B5E /* errors.swift in Sources */,
 				64BB9AE62416B46600825D95 /* yeelight.swift in Sources */,
 				64BB9ADF241642E500825D95 /* main.swift in Sources */,
 				6429F0AD241760190013AD8B /* networkTools.swift in Sources */,

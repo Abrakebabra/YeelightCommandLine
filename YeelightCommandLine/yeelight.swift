@@ -89,23 +89,27 @@ public class Yeelight {
         func parseData(Decoded decoded: String) {
             // parse the information received into struct
             let decoded = decoded
-            let unwanted: String = "HTTP/1.1 200 OK\r\nCache-Control: max-age=3600\r\nDate: \r\nExt: \r\nLocation: yeelight://"
-            let cleaned: String = decoded.replacingOccurrences(of: unwanted, with: "")
-            let listProperties: [String] = cleaned.components(separatedBy: "\r\n")
+            let separatedProperties: [String] = decoded.components(separatedBy: "\r\n")
+            var dictionaryProperties: [String: String] = [:]
             
-            do {
-                for i in listProperties {
-                    let keyValue: [String] = i.components(separatedBy: ":")
-                    // do the thing!
+            let addressMarker: String = "Location: yeelight://"
+            
+            for i in separatedProperties {
+                
+                if i.contains(addressMarker) {
+                    let ipPort: String = i.replacingOccurrences(of: addressMarker, with: "")
+                    // then handle it like the others
+                } else {
+                    // do this
                 }
-                // try to initialise new light and append
-                try throwing expression
-            } catch <#pattern#> {
-                <#statements#>
-            }
+                
+                
+                let keyValue: [String] = i.components(separatedBy: ":")
+                let key: String = keyValue[0]
+                
+                
+                // split out \r\nLocation: yeelight://
             
-            
-        }
         
         
         // reads data array and stores meaningful light information

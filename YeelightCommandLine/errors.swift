@@ -9,7 +9,13 @@
 import Foundation
 
 
-enum dataParseError {
+enum dataParseError: Error {
     case initFailed
     // etc...
+}
+
+
+enum convertError: Error {
+    case stringIntFailed
+    case stringBoolFailed
 }

@@ -61,31 +61,93 @@ public struct State {
     var hue: Int
     var sat: Int
     var name: String
+    
+    var test: String
+    
 }
 
 
 public class Yeelight {
-    public var lights: [String : State] = [:]
+    // Stores all lights
+    public var light: [String : State] = [:]
     
     // no init func yet
     
+    
     public func discover() {
+        
+        // clear all existing lights
+        light.removeAll(keepingCapacity: true)
+        
         // enter expected number of lights to find?
         // or find them all, then prompt if it looks right
         
+        // searchMessage addr, port, and message
         let multicastHost: NWEndpoint.Host = "239.255.255.250"
         let multicastPort: NWEndpoint.Port = 1982
         let searchMsg: String = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb"
         let searchBytes = searchMsg.data(using: .utf8)
+        
         
         // Setup UDP connection
         let udpConn = NWConnection(host: multicastHost, port: multicastPort, using: .udp)
         
         
         
-    
+        
+        // convert strings to various data types and create struct
+        // handle errors
+        func createLight(dict input: [String:String]) throws -> State {
+            
+            let ip: String
+            let port: Int
+            let server: String
+            let idSerial: String
+            let model: String
+            let fw_ver: String
+            let support: String
+            var power: Bool
+            var brightness: Int
+            var colorMode: Int
+            var colorTemp: Int
+            var rgb: Int
+            var hue: Int
+            var sat: Int
+            var name: String
+            
+            
+            for (key, value) in input {
+                switch key {
+                case "ip":
+                    <#code#>
+                case "port":
+                case "Server":
+                case "id":
+                case "model":
+                case "fw_ver":
+                case "support":
+                case "power":
+                case "bright":
+                case "color_mode":
+                case "ct":
+                case "rgb":
+                case "hue":
+                case "sat":
+                case "name":
+                    
+                default:
+                    <#code#>
+                }
+            }
+            
+            
+            
+            
+        }
         
         
+        
+        // parse string data to store light data
         func parseData(Decoded decoded: String) {
             // parse the information received into struct
             let decoded = decoded
@@ -94,22 +156,28 @@ public class Yeelight {
             
             let addressMarker: String = "Location: yeelight://"
             
+            
+            
+            
             for i in separatedProperties {
-                
-                if i.contains(addressMarker) {
-                    let ipPort: String = i.replacingOccurrences(of: addressMarker, with: "")
-                    // then handle it like the others
+                if i.isEmpty {
+                    // last element is empty as the whole string ended with "\r\n" and was separated into an empty element.
+                    continue
+                    
+                } else if i.contains(addressMarker) {
+                    let ipPortString: String = i.replacingOccurrences(of: addressMarker, with: "")
+                    let ipPort: [String] = ipPortString.components(separatedBy: ":")
+                    dictionaryProperties["ip"] = ipPort[0]
+                    dictionaryProperties["port"] = ipPort[1]
+                    
                 } else {
-                    // do this
+                    let keyValue: [String] = i.components(separatedBy: ":")
+                    let key: String = keyValue[0]
+                    let value: String = keyValue[1]
+                    dictionaryProperties[key] = value
                 }
                 
                 
-                let keyValue: [String] = i.components(separatedBy: ":")
-                let key: String = keyValue[0]
-                
-                
-                // split out \r\nLocation: yeelight://
-            
         
         
         // reads data array and stores meaningful light information

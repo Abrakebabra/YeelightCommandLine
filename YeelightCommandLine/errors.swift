@@ -8,14 +8,9 @@
 
 import Foundation
 
-
-enum dataParseError: Error {
-    case initFailed
-    // etc...
-}
-
-
-enum convertError: Error {
-    case stringIntFailed
-    case stringBoolFailed
+// currently not used
+enum DiscoveryError: Error {
+    case initFailed(String)
+    case dataParse
+    case noLightsFound
 }

@@ -39,24 +39,3 @@ procQueue.async(qos: .userInitiated) {
 }
 */
 
-
-
-// connection state handler
-udpConn.stateUpdateHandler = { (newState) in
-    switch(newState) {
-    case .setup:
-        print("Setting up!")
-    case .preparing:
-        print("Preparing!")
-    case .ready:
-        print("Ready!")
-    case .waiting:
-        print("Waiting!")
-    case .failed:
-        print("Failed!")
-    case .cancelled:
-        print("Cancelled!")
-    }
-}
-
-

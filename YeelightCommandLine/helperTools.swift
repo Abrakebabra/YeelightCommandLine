@@ -9,13 +9,11 @@
 import Foundation
 
 // convert String to Int
-func stringToInt(String string: String) throws -> Int {
-    guard let integer = Int(string) else {
-        throw convertError.stringIntFailed
+func stringIntConvert(String string: String) -> Int? {
+    if let integer = Int(string) {
+        return integer
+    } else {
+        return nil
     }
-    
-    return integer
 }
 
-
-// convert String to Bool

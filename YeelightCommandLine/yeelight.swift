@@ -44,11 +44,11 @@ import Network
  */
 
 public struct State {
-    let ip: String  // var?  If re-discover lights?
-    let port: Int  // var?  If re-discover lights?
-    let server: String
+    let ip: String
+    let port: Int
     let idSerial: String
     
+    let server: String
     let model: String
     let fw_ver: String
     let support: String
@@ -61,9 +61,6 @@ public struct State {
     var hue: Int
     var sat: Int
     var name: String
-    
-    var test: String
-    
 }
 
 
@@ -96,75 +93,102 @@ public class Yeelight {
         
         
         // convert strings to various data types and create struct
-        // handle errors
-        func createLight(dict input: [String:String]) throws -> State {
+        // handle errors?
+        func createLight(dict input: [String:String]) -> State {
             
-            let ip: String
-            let port: Int
-            let server: String
-            let idSerial: String
-            let model: String
-            let fw_ver: String
-            let support: String
-            var power: Bool
-            var brightness: Int
-            var colorMode: Int
-            var colorTemp: Int
-            var rgb: Int
-            var hue: Int
-            var sat: Int
-            var name: String
+            // temporary holding of values to init
+            var ip: String = ""
+            var port: Int = 0
+            var idSerial: String = ""
+            
+            var server: String = ""
+            var model: String = ""
+            var fw_ver: String = ""
+            var support: String = ""
+            
+            var power: Bool = false
+            var brightness: Int = 1
+            var colorMode: Int = 1
+            var colorTemp: Int = 1700
+            var rgb: Int = 0
+            var hue: Int = 0
+            var sat: Int = 0
+            var name: String = ""
             
             
+            // initialise string, bool and int properties
             for (key, value) in input {
                 switch key {
                 case "ip":
-                    <#code#>
+                    ip = value
                 case "port":
+                    if let intPort = Int(value) {
+                        port = intPort
+                    }
                 case "Server":
+                    server = value
                 case "id":
+                    idSerial = value
                 case "model":
+                    model = value
                 case "fw_ver":
+                    fw_ver = value
                 case "support":
+                    support = value
                 case "power":
+                    if value == "on" {
+                        power = true
+                    }
                 case "bright":
+                    if let intBright = Int(value) {
+                        brightness = intBright
+                    }
                 case "color_mode":
+                    if let intColMode = Int(value) {
+                        colorMode = intColMode
+                    }
                 case "ct":
+                    if let intColTemp = Int(value) {
+                        colorTemp = intColTemp
+                    }
                 case "rgb":
+                    if let intRGB = Int(value) {
+                        rgb = intRGB
+                    }
                 case "hue":
+                    if let intHue = Int(value) {
+                        hue = intHue
+                    }
                 case "sat":
+                    if let intSat = Int(value) {
+                        sat = intSat
+                    }
                 case "name":
-                    
+                    name = value
                 default:
-                    <#code#>
+                    continue
                 }
             }
             
+            let newLight = State(ip: ip, port: port, idSerial: idSerial, server: server, model: model, fw_ver: fw_ver, support: support, power: power, brightness: brightness, colorMode: colorMode, colorTemp: colorTemp, rgb: rgb, hue: hue, sat: sat, name: name)
             
-            
-            
+            return newLight
         }
         
         
         
         // parse string data to store light data
-        func parseData(Decoded decoded: String) {
+        func parseData(Decoded decoded: String) -> State {
             // parse the information received into struct
-            let decoded = decoded
-            let separatedProperties: [String] = decoded.components(separatedBy: "\r\n")
-            var dictionaryProperties: [String: String] = [:]
-            
+            var separatedProperties: [String] = decoded.components(separatedBy: "\r\n")
+            separatedProperties.removeFirst()
+            separatedProperties.removeLast()
             let addressMarker: String = "Location: yeelight://"
-            
-            
+            var dictionaryProperties: [String: String] = [:]
             
             
             for i in separatedProperties {
-                if i.isEmpty {
-                    // last element is empty as the whole string ended with "\r\n" and was separated into an empty element.
-                    continue
-                    
-                } else if i.contains(addressMarker) {
+                if i.contains(addressMarker) {
                     let ipPortString: String = i.replacingOccurrences(of: addressMarker, with: "")
                     let ipPort: [String] = ipPortString.components(separatedBy: ":")
                     dictionaryProperties["ip"] = ipPort[0]
@@ -176,35 +200,28 @@ public class Yeelight {
                     let value: String = keyValue[1]
                     dictionaryProperties[key] = value
                 }
-                
-                
-        
+            }
+            return createLight(dict: dictionaryProperties)
+        }
+    
         
         // reads data array and stores meaningful light information
-        func extractData(Received array: [Data]) {
+        func extractData(Received data: Data) {
             // convert data into string
+            let decoded: String = String(data: data, encoding: .utf8)!
             // manipulate string into separate data properties
-            let array: [Data] = array
-            var decoded: [String] = []
             
-            for i in array {
-                if let i: String = String(data: i, encoding: .utf8) {
-                    decoded.append(i)
-                }
-            }
-            
+            let lightData: State = parseData(Decoded: decoded)
+            self.light[lightData.idSerial] = lightData
             
         }
         
         
         // handles replies received from lights with listener
-        func udpReplyHandler(newConn conn: NWConnection) -> Data? {
+        func udpReplyHandler(newConn conn: NWConnection) {
             // starts connection
             // receives data from connection
             // if complete, cancels the connection
-            // returns data.  Returns nil if error.
-            var receivedData: Data
-            var returnData: Bool = false
             
             conn.start(queue: connQueue)
             
@@ -212,41 +229,26 @@ public class Yeelight {
                 // data, defaultMessage, isComplete, errors (enum dns posix tcl)
                 
                 if let data: Data = data, !data.isEmpty {
-                    receivedData = data
-                    returnData = true
+                    extractData(Received: data)
                     // won't need the connection anymore
                     conn.cancel()
                 }
                 // Handle NW errors?
             })
-            
-            if returnData == true {
-                return receivedData
-            } else {
-                return nil
-            }
         }
         
         
         // Listen for reply from multicast
-        func udpListenReply(onPort port: NWEndpoint.Port) -> [Data] {
-            var allReplies: [Data] = []
+        func udpListenReply(onPort port: NWEndpoint.Port) {
             
             if let listener = try? NWListener(using: .udp, on: port) {
                 listener.newConnectionHandler = { (newConn) in
-                    let data = udpReplyHandler(newConn: newConn)
+                    udpReplyHandler(newConn: newConn)
                     
-                    if let data = data {
-                        allReplies.append(data)
-                    }
                 }
                 listener.start(queue: connQueue)
             }
-            
-            // If everything fails, will return empty array
-            return allReplies
         }
-        
         
         
         // Setup procedure to do when search message is sent
@@ -256,7 +258,8 @@ public class Yeelight {
             // dump data into array
             if NWError == nil {
                 if let localPort = getLocalPort(fromConnection: udpConn) {
-                    let dataArray: [Data] = udpListenReply(onPort: localPort)
+                    // what if there's no data?  Handle that error?
+                    udpListenReply(onPort: localPort)
                 }
             }
             //if let NWError = NWError {
@@ -272,8 +275,5 @@ public class Yeelight {
         udpConn.send(content: searchBytes, completion: sendSearchCompletion)
         
     }
-    
-
 }
-
 

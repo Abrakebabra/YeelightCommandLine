@@ -10,7 +10,5 @@ import Foundation
 
 // currently not used
 enum DiscoveryError: Error {
-    case initFailed(String)
-    case dataParse
-    case noLightsFound
+    case tcpInitFailed
 }

@@ -12,9 +12,40 @@ let connQueue = DispatchQueue(label: "Connection Queue")
 let procQueue = DispatchQueue(label: "Process Queue")
 let semaphore = DispatchSemaphore(value: 1)
 
+var lightsRemaining = 6
+
 let light = Yeelight()
 light.discover()
-//sleep(5)
-for i in light.light {
-    print(i)
+
+
+let lightCount: Int = light.light.count
+var readyCount: Int = 0
+while lightCount > readyCount {
+    readyCount = 0
+    
+    for (key, _) in light.light {
+        
+        if light.light[key]?.conn.status == "ready" {
+            readyCount += 1
+        }
+    }
+}
+
+sleep(1)
+
+for (key, value) in light.light {
+    print("\(key): ip:\(value.ip)")
+}
+
+
+while true {
+    let input: String? = readLine()
+    
+    if input == "exit" {
+        for (key, _) in light.light {
+            light.light[key]?.conn.conn.cancel()
+        }
+        sleep(1)
+        break
+    }
 }

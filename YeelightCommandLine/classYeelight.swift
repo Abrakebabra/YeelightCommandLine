@@ -13,7 +13,7 @@ import Network
 
 /*
  
- struct light properties
+ struct light propertyList
  
  
  Light Class
@@ -45,14 +45,10 @@ import Network
 
 public struct State {
     let ip: String
-    let port: Int
+    let port: String
     let idSerial: String
-    
-    let server: String
-    let model: String
-    let fw_ver: String
-    let support: String
-    
+    let conn: TCPConnection
+
     var power: Bool
     var brightness: Int
     var colorMode: Int
@@ -61,6 +57,10 @@ public struct State {
     var hue: Int
     var sat: Int
     var name: String
+    
+    let model: String // Might be useful for lights with limited abilities
+    let support: String // Might be useful for lights with limited abilities
+    
 }
 
 
@@ -69,7 +69,6 @@ public class Yeelight {
     public var light: [String : State] = [:]
     
     // no init func yet
-    
     
     public func discover() {
         
@@ -90,20 +89,16 @@ public class Yeelight {
         let udpConn = NWConnection(host: multicastHost, port: multicastPort, using: .udp)
         
         
-        
-        
         // convert strings to various data types and create struct
         // handle errors?
-        func createLight(dict input: [String:String]) -> State {
+        func createLight(dict input: [String:String]) throws -> State {
             
             // temporary holding of values to init
             var ip: String = ""
-            var port: Int = 0
+            var port: String = ""
             var idSerial: String = ""
             
-            var server: String = ""
             var model: String = ""
-            var fw_ver: String = ""
             var support: String = ""
             
             var power: Bool = false
@@ -116,25 +111,15 @@ public class Yeelight {
             var name: String = ""
             
             
-            // initialise string, bool and int properties
+            // initialise string, bool and int propertyList
             for (key, value) in input {
                 switch key {
                 case "ip":
                     ip = value
                 case "port":
-                    if let intPort = Int(value) {
-                        port = intPort
-                    }
-                case "Server":
-                    server = value
+                    port = value
                 case "id":
                     idSerial = value
-                case "model":
-                    model = value
-                case "fw_ver":
-                    fw_ver = value
-                case "support":
-                    support = value
                 case "power":
                     if value == "on" {
                         power = true
@@ -165,75 +150,88 @@ public class Yeelight {
                     }
                 case "name":
                     name = value
+                case "model":
+                    model = value
+                case "support":
+                    support = value
                 default:
                     continue
                 }
             }
             
-            let newLight = State(ip: ip, port: port, idSerial: idSerial, server: server, model: model, fw_ver: fw_ver, support: support, power: power, brightness: brightness, colorMode: colorMode, colorTemp: colorTemp, rgb: rgb, hue: hue, sat: sat, name: name)
+            let tcpConnection = try TCPConnection(TargetIP: ip, TargetPort: port, ID: idSerial)
             
-            return newLight
+            return State(ip: ip, port: port, idSerial: idSerial, conn: tcpConnection, power: power, brightness: brightness, colorMode: colorMode, colorTemp: colorTemp, rgb: rgb, hue: hue, sat: sat, name: name, model: model, support: support)
         }
         
         
-        
         // parse string data to store light data
-        func parseData(Decoded decoded: String) -> State {
+        func parseData(Decoded decoded: String) -> [String:String] {
             // parse the information received into struct
-            var separatedProperties: [String] = decoded.components(separatedBy: "\r\n")
-            separatedProperties.removeFirst()
-            separatedProperties.removeLast()
+            var propertyList: [String] = decoded.components(separatedBy: "\r\n")
+            propertyList.removeFirst() // remove HTTP header
+            propertyList.removeLast() // remove empty element
+            // could probably put above in own function
+            
             let addressMarker: String = "Location: yeelight://"
-            var dictionaryProperties: [String: String] = [:]
+            var propertyDict: [String: String] = [:]
             
             
-            for i in separatedProperties {
+            for i in propertyList {
                 if i.contains(addressMarker) {
                     let ipPortString: String = i.replacingOccurrences(of: addressMarker, with: "")
                     let ipPort: [String] = ipPortString.components(separatedBy: ":")
-                    dictionaryProperties["ip"] = ipPort[0]
-                    dictionaryProperties["port"] = ipPort[1]
+                    propertyDict["ip"] = ipPort[0]
+                    propertyDict["port"] = ipPort[1]
                     
                 } else {
                     let keyValue: [String] = i.components(separatedBy: ":")
                     let key: String = keyValue[0]
                     let value: String = keyValue[1]
-                    dictionaryProperties[key] = value
+                    propertyDict[key] = value
                 }
             }
-            return createLight(dict: dictionaryProperties)
-        }
-    
-        
-        // reads data array and stores meaningful light information
-        func extractData(Received data: Data) {
-            // convert data into string
-            let decoded: String = String(data: data, encoding: .utf8)!
-            // manipulate string into separate data properties
-            
-            let lightData: State = parseData(Decoded: decoded)
-            self.light[lightData.idSerial] = lightData
-            
+            return propertyDict
         }
         
         
         // handles replies received from lights with listener
-        func udpReplyHandler(newConn conn: NWConnection) {
-            // starts connection
-            // receives data from connection
-            // if complete, cancels the connection
+        func udpReplyHandler(NewConn conn: NWConnection) {
             
             conn.start(queue: connQueue)
             
             conn.receive(minimumIncompleteLength: 1, maximumLength: 65536, completion: { (data, _, _, _) in
                 // data, defaultMessage, isComplete, errors (enum dns posix tcl)
                 
-                if let data: Data = data, !data.isEmpty {
-                    extractData(Received: data)
-                    // won't need the connection anymore
-                    conn.cancel()
+                // data is valid?
+                guard let unwrappedData: Data = data else {
+                    return
                 }
-                // Handle NW errors?
+                
+                // decode data to String
+                guard let decoded: String = String(data: unwrappedData, encoding: .utf8) else {
+                    return
+                }
+                
+                // separate properties into dictionary to inspect
+                let properties: [String:String] = parseData(Decoded: decoded)
+                
+                // create struct of light property
+                do {
+                    let lightData: State = try createLight(dict: properties)
+                    // save the light to class dictionary
+                    self.light[lightData.idSerial] = lightData
+                    
+                    // reduce number of expected lights
+                    lightsRemaining -= 1
+                }
+                catch {
+                    print("TCP Init Failed")
+                    return
+                }
+                
+                // won't need the connection anymore
+                conn.cancel()
             })
         }
         
@@ -243,7 +241,8 @@ public class Yeelight {
             
             if let listener = try? NWListener(using: .udp, on: port) {
                 listener.newConnectionHandler = { (newConn) in
-                    udpReplyHandler(newConn: newConn)
+                    // create connection, listen to reply and create lights from data received
+                    udpReplyHandler(NewConn: newConn)
                     
                 }
                 listener.start(queue: connQueue)
@@ -260,11 +259,9 @@ public class Yeelight {
                 if let localPort = getLocalPort(fromConnection: udpConn) {
                     // what if there's no data?  Handle that error?
                     udpListenReply(onPort: localPort)
+                    
                 }
             }
-            //if let NWError = NWError {
-            //    print(NWError)
-            //}
         }
         
         // Start the connection
@@ -275,5 +272,8 @@ public class Yeelight {
         udpConn.send(content: searchBytes, completion: sendSearchCompletion)
         
     }
+    
+    
+    
 }
 

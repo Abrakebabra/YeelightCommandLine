@@ -25,17 +25,3 @@ func getLocalPort(fromConnection conn: NWConnection) -> NWEndpoint.Port? {
     }
 }
 
-
-
-
-
-//print(String(data: data, encoding: .utf8)!)
-/*
-procQueue.async(qos: .userInitiated) {
-    semaphore.wait()
- 
-    
-    semaphore.signal()
-}
-*/
-

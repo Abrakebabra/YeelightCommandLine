@@ -9,9 +9,10 @@
 /* Begin PBXBuildFile section */
 		6425FE4E2418A3C2007E5B5E /* errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6425FE4D2418A3C2007E5B5E /* errors.swift */; };
 		6429F0AD241760190013AD8B /* networkTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6429F0AC241760190013AD8B /* networkTools.swift */; };
+		6482E59B241FAE1B001C1CE9 /* classTCPConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6482E59A241FAE1B001C1CE9 /* classTCPConnection.swift */; };
 		64A2353A241E354F00813F86 /* helperTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64A23539241E354F00813F86 /* helperTools.swift */; };
 		64BB9ADF241642E500825D95 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BB9ADE241642E500825D95 /* main.swift */; };
-		64BB9AE62416B46600825D95 /* yeelight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BB9AE52416B46600825D95 /* yeelight.swift */; };
+		64BB9AE62416B46600825D95 /* classYeelight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BB9AE52416B46600825D95 /* classYeelight.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -29,10 +30,11 @@
 /* Begin PBXFileReference section */
 		6425FE4D2418A3C2007E5B5E /* errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = errors.swift; sourceTree = "<group>"; };
 		6429F0AC241760190013AD8B /* networkTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = networkTools.swift; sourceTree = "<group>"; };
+		6482E59A241FAE1B001C1CE9 /* classTCPConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = classTCPConnection.swift; sourceTree = "<group>"; };
 		64A23539241E354F00813F86 /* helperTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = helperTools.swift; sourceTree = "<group>"; };
 		64BB9ADB241642E500825D95 /* YeelightCommandLine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = YeelightCommandLine; sourceTree = BUILT_PRODUCTS_DIR; };
 		64BB9ADE241642E500825D95 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
-		64BB9AE52416B46600825D95 /* yeelight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = yeelight.swift; sourceTree = "<group>"; };
+		64BB9AE52416B46600825D95 /* classYeelight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = classYeelight.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -66,7 +68,8 @@
 			isa = PBXGroup;
 			children = (
 				64BB9ADE241642E500825D95 /* main.swift */,
-				64BB9AE52416B46600825D95 /* yeelight.swift */,
+				64BB9AE52416B46600825D95 /* classYeelight.swift */,
+				6482E59A241FAE1B001C1CE9 /* classTCPConnection.swift */,
 				6425FE4D2418A3C2007E5B5E /* errors.swift */,
 				64A23539241E354F00813F86 /* helperTools.swift */,
 				6429F0AC241760190013AD8B /* networkTools.swift */,
@@ -132,8 +135,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				6425FE4E2418A3C2007E5B5E /* errors.swift in Sources */,
-				64BB9AE62416B46600825D95 /* yeelight.swift in Sources */,
+				64BB9AE62416B46600825D95 /* classYeelight.swift in Sources */,
 				64BB9ADF241642E500825D95 /* main.swift in Sources */,
+				6482E59B241FAE1B001C1CE9 /* classTCPConnection.swift in Sources */,
 				64A2353A241E354F00813F86 /* helperTools.swift in Sources */,
 				6429F0AD241760190013AD8B /* networkTools.swift in Sources */,
 			);

@@ -17,8 +17,8 @@ var lightsRemaining = 6
 let light = Yeelight()
 light.discover()
 
-
-let lightCount: Int = light.light.count
+/*
+let lightCount: Int = 0
 var readyCount: Int = 0
 while lightCount > readyCount {
     readyCount = 0
@@ -30,8 +30,10 @@ while lightCount > readyCount {
         }
     }
 }
+*/
 
-sleep(1)
+
+sleep(2)
 
 for (key, value) in light.light {
     print("\(key): ip:\(value.ip)")

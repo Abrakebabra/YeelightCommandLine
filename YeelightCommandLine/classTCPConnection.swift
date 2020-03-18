@@ -16,11 +16,16 @@ class TCPConnection {
     let id: String
     var status: String
     
+    let complete = NWConnection.SendCompletion.contentProcessed { (_) in
+        // no send completion instructions yet
+    }
     
-    init(TargetIP ip: String, TargetPort port: String, ID id: String) throws {
+    init(TargetIP ip: String, TargetPort port: String, ID id: String)
+        throws {
         
-        guard let NWPort: NWEndpoint.Port = NWEndpoint.Port(port) else {
-            throw DiscoveryError.tcpInitFailed
+        guard let NWPort: NWEndpoint.Port = NWEndpoint.Port(port)
+            else {
+            throw DiscoveryError.tcpInitFailed("String to NWEndpoint.Port")
         }
         
         self.ip = NWEndpoint.Host(ip)
@@ -37,19 +42,19 @@ class TCPConnection {
                 self.status = "preparing"
             case .ready:
                 self.status = "ready"
-                print("\(ip), \(id) ready")
+                print("\(self.ip), \(self.id) ready")
             case .waiting:
                 self.status = "waiting"
-                print("\(ip), \(id) waiting")
+                print("\(self.ip), \(self.id) waiting")
             case .failed:
                 self.status = "failed"
-                print("\(ip), \(id) tcp connection failed")
+                print("\(self.ip), \(self.id) tcp connection failed")
             case .cancelled:
                 self.status = "cancelled"
-                print("\(ip), \(id) tcp connection cancelled")
+                print("\(self.ip), \(self.id) tcp connection cancelled")
             default:
                 self.status = "unknown"
-                print("Unknown error for \(ip), \(id)")
+                print("Unknown error for \(self.ip), \(self.id)")
             }
         }
         
@@ -59,7 +64,22 @@ class TCPConnection {
     
     
     // Send a command to the light
-    func command(CommandString commandString: String) {
+    func command(CommandString commandString: String) throws {
+        
+        
+        
+        guard let commandByte: Data = commandString.data(using: .utf8) else {
+            throw CommandError.invalidString
+        }
+        
+        
+        self.conn.send(content: commandByte, completion: complete)
+        
+        self.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, _) in
+            // Data?, NWConnection.ContentContext?, Bool, NWError?
+            print(data)
+        }
+        
         // takes in JSON string
         // sends that to a light
         // awaits for a reply

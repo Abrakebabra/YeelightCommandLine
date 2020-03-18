@@ -8,7 +8,13 @@
 
 import Foundation
 
-// currently not used
+
 enum DiscoveryError: Error {
-    case tcpInitFailed
+    case tcpInitFailed(String)
+    case stateInitFailed(String)
+    case stringUnwrapFailed
+}
+
+enum CommandError: Error {
+    case invalidString
 }

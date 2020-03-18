@@ -43,24 +43,74 @@ import Network
  
  */
 
-public struct State {
-    let ip: String
-    let port: String
-    let idSerial: String
-    let conn: TCPConnection
-
+// I can do the initialising here and convert all strings to integers
+// It's not really a "State" anymore, since I have the connection object here
+// Change struct name?
+public struct Light {
+    let ip: String, port: String, idSerial: String, conn: TCPConnection
     var power: Bool
-    var brightness: Int
-    var colorMode: Int
-    var colorTemp: Int
-    var rgb: Int
-    var hue: Int
-    var sat: Int
+    var colorMode: Int, brightness: Int
+    var colorTemp: Int, rgb: Int, hue: Int, sat: Int
     var name: String
-    
     let model: String // Might be useful for lights with limited abilities
     let support: String // Might be useful for lights with limited abilities
     
+    
+    init(IP: String, Port: String, IDSerial: String, Conn: TCPConnection,
+         Power: String,
+         ColorMode: String, Brightness: String,
+         ColorTemp: String, RGB: String, Hue: String, Sat: String,
+         Name: String,
+         Model: String, Support: String) {
+        self.ip = IP
+        self.port = Port
+        self.idSerial = IDSerial
+        self.conn = Conn
+        
+        if Power == "on" {
+            self.power = true
+        } else {
+            self.power = false
+        }
+        
+        // just in case a light that has been factory-reset has nil for properties that have not yet been used
+        // or do I want to throw an error?  It's not really an error for the user to deal with if the light hasn't initialised it and will do so later.
+        
+        if let colorModeInt = Int(ColorMode) {
+            self.colorMode = colorModeInt
+        } else {
+            self.colorMode = 1
+        }
+        if let brightInt = Int(Brightness) {
+            self.brightness = brightInt
+        } else {
+            self.brightness = 1
+        }
+        if let colorTempInt = Int(ColorTemp) {
+            self.colorTemp = colorTempInt
+        } else {
+            self.colorTemp = 1700
+        }
+        if let rgbInt = Int(RGB) {
+            self.rgb = rgbInt
+        } else {
+            self.rgb = 0
+        }
+        if let hueInt = Int(Hue) {
+            self.hue = hueInt
+        } else {
+            self.hue = 0
+        }
+        if let satInt = Int(Sat) {
+            self.sat = satInt
+        } else {
+            self.sat = 0
+        }
+        
+        self.name = Name
+        self.model = Model
+        self.support = Support
+    }
 }
 
 
@@ -91,77 +141,31 @@ public class Yeelight {
         
         // convert strings to various data types and create struct
         // handle errors?
-        func createLight(dict input: [String:String]) throws -> State {
+        func createLight(Dict property: [String:String]) throws -> Light {
             
-            // temporary holding of values to init
-            var ip: String = ""
-            var port: String = ""
-            var idSerial: String = ""
-            
-            var model: String = ""
-            var support: String = ""
-            
-            var power: Bool = false
-            var brightness: Int = 1
-            var colorMode: Int = 1
-            var colorTemp: Int = 1700
-            var rgb: Int = 0
-            var hue: Int = 0
-            var sat: Int = 0
-            var name: String = ""
-            
-            
-            // initialise string, bool and int propertyList
-            for (key, value) in input {
-                switch key {
-                case "ip":
-                    ip = value
-                case "port":
-                    port = value
-                case "id":
-                    idSerial = value
-                case "power":
-                    if value == "on" {
-                        power = true
-                    }
-                case "bright":
-                    if let intBright = Int(value) {
-                        brightness = intBright
-                    }
-                case "color_mode":
-                    if let intColMode = Int(value) {
-                        colorMode = intColMode
-                    }
-                case "ct":
-                    if let intColTemp = Int(value) {
-                        colorTemp = intColTemp
-                    }
-                case "rgb":
-                    if let intRGB = Int(value) {
-                        rgb = intRGB
-                    }
-                case "hue":
-                    if let intHue = Int(value) {
-                        hue = intHue
-                    }
-                case "sat":
-                    if let intSat = Int(value) {
-                        sat = intSat
-                    }
-                case "name":
-                    name = value
-                case "model":
-                    model = value
-                case "support":
-                    support = value
-                default:
-                    continue
-                }
+            guard
+                let ip = property["ip"],
+                let port = property["port"],
+                let idSerial = property["id"],
+                let power = property["power"],
+                let brightness = property["bright"],
+                let colorMode = property["color_mode"],
+                let colorTemp = property["ct"],
+                let rgb = property["rgb"],
+                let hue = property["hue"],
+                let sat = property["sat"],
+                let name = property["name"],
+                let model = property["model"],
+                let support = property["support"]
+                else {
+                    throw DiscoveryError.stringUnwrapFailed
             }
             
             let tcpConnection = try TCPConnection(TargetIP: ip, TargetPort: port, ID: idSerial)
             
-            return State(ip: ip, port: port, idSerial: idSerial, conn: tcpConnection, power: power, brightness: brightness, colorMode: colorMode, colorTemp: colorTemp, rgb: rgb, hue: hue, sat: sat, name: name, model: model, support: support)
+            let state = Light(IP: ip, Port: port, IDSerial: idSerial, Conn: tcpConnection, Power: power, ColorMode: colorMode, Brightness: brightness, ColorTemp: colorTemp, RGB: rgb, Hue: hue, Sat: sat, Name: name, Model: model, Support: support)
+            
+            return state
         }
         
         
@@ -174,7 +178,7 @@ public class Yeelight {
             // could probably put above in own function
             
             let addressMarker: String = "Location: yeelight://"
-            var propertyDict: [String: String] = [:]
+            var propertyDict: [String:String] = [:]
             
             
             for i in propertyList {
@@ -200,8 +204,8 @@ public class Yeelight {
             
             conn.start(queue: connQueue)
             
-            conn.receive(minimumIncompleteLength: 1, maximumLength: 65536, completion: { (data, _, _, _) in
-                // data, defaultMessage, isComplete, errors (enum dns posix tcl)
+            conn.receiveMessage { (data, _, _, _) in
+                // Data?, contentContext?, Bool, NWError? (enum dns posix tcl)
                 
                 // data is valid?
                 guard let unwrappedData: Data = data else {
@@ -218,7 +222,7 @@ public class Yeelight {
                 
                 // create struct of light property
                 do {
-                    let lightData: State = try createLight(dict: properties)
+                    let lightData: State = try createLight(Dict: properties)
                     // save the light to class dictionary
                     self.light[lightData.idSerial] = lightData
                     
@@ -232,7 +236,9 @@ public class Yeelight {
                 
                 // won't need the connection anymore
                 conn.cancel()
-            })
+                
+            }
+            
         }
         
         
@@ -270,6 +276,9 @@ public class Yeelight {
         
         // Send search message and handle replies
         udpConn.send(content: searchBytes, completion: sendSearchCompletion)
+        
+        
+        
         
     }
     

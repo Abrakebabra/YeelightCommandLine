@@ -18,3 +18,10 @@ enum DiscoveryError: Error {
 enum CommandError: Error {
     case invalidString
 }
+
+enum JSONError: Error {
+    case responseError(String)
+    case errorObject
+    case jsonObject
+    case unknownError
+}

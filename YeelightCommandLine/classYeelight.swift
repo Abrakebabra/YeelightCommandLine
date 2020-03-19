@@ -116,7 +116,7 @@ public struct Light {
 
 public class Yeelight {
     // Stores all lights
-    public var light: [String : State] = [:]
+    public var light: [String : Light] = [:]
     
     // no init func yet
     
@@ -222,7 +222,7 @@ public class Yeelight {
                 
                 // create struct of light property
                 do {
-                    let lightData: State = try createLight(Dict: properties)
+                    let lightData: Light = try createLight(Dict: properties)
                     // save the light to class dictionary
                     self.light[lightData.idSerial] = lightData
                     

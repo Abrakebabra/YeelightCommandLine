@@ -18,41 +18,42 @@ func stringIntConvert(String string: String) -> Int? {
 }
 
 
+func jsonEncoder(Command message: Any) throws -> Data {
+    /*
+     JSON COMMANDS
+     {"id":1,"method":"set_default","params":[]}
+     {"id":1,"method":"set_scene", "params": ["hsv", 300, 70, 100]}
+     
+     {"id":1,"method":"get_prop","params":["power", "not_exist", "bright"]}
+     */
+    
+    // Take any dictionary, convert to JSON and convert to utf8 data
+    // Dictionary is created by individual command functions
+    let serialized = try JSONSerialization.data(withJSONObject: message, options: [])
+    
+    return serialized
+}
 
-
-/*
- JSON COMMANDS
- {"id":1,"method":"set_default","params":[]}
- {"id":1,"method":"set_scene", "params": ["hsv", 300, 70, 100]}
- 
- {"id":1,"method":"get_prop","params":["power", "not_exist", "bright"]}
- */
-
-
-
-
-
-
-
-/*
- JSON RESPONSES
- 
- Standard Responses     [String]
- {"id":1, "result":["ok"]}
- 
- get_pro Response       [String]
- {"id":1, "result":["on", "", "100"]}
- 
- cron_get Response      [[String:Int]]
- {"id":1, "result":[{"type": 0, "delay": 15, "mix": 0}]}
- Will not accommodate this response within jsonDecoder.  If I use it, I'll make a separate function.  The function will need to return an any type to be dealt with after the jsonDecoder function has been called.
- 
- Error Response
- {"id":2, "error":{"code":-1, “message”:"unsupported method"}}
- [String:[String:Any]]
- */
 
 func jsonDecoder(Response data: Data) throws -> [String] {
+    /*
+     JSON RESPONSES
+     
+     Standard Responses     [String]
+     {"id":1, "result":["ok"]}
+     
+     get_pro Response       [String]
+     {"id":1, "result":["on", "", "100"]}
+     
+     cron_get Response      [[String:Int]]
+     {"id":1, "result":[{"type": 0, "delay": 15, "mix": 0}]}
+     Will not accommodate this response within jsonDecoder.  If I use it, I'll make a separate function.  The function will need to return an any type to be dealt with after the jsonDecoder function has been called.
+     
+     Error Response
+     {"id":2, "error":{"code":-1, “message”:"unsupported method"}}
+     [String:[String:Any]]
+     */
+    
     // Deserialize the data to a JSON object
     // Inspect contents of JSON object and look for "result" (ignore "id")
     // If no "result" found, look for "error"

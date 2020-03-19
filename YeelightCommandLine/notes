@@ -1,13 +1,26 @@
 
 Do:
+ - Search udp message to multicast address
+ - Receive udp response from multicast address
+    - Get IP Port search message was sent from
+    - Listen to that IP Port for response
+    - Get individual light properties
+    - Create new tcp connection to each light
+    - Save the light connection and properties
+ - Create command functions
+    - Helper functions for various RGB notations
+        - Both rgb to single int, and reverse.  Maybe hex, or another format?
+    - Encode JSON
+    - Listen for response
+        - decode JSON
+    - If response received, save command to light properties
+    - Music mode?  Create separate TCP connection
+    - Color Flow?
+ - Work on main program with commands
 
-
-
-
-
+ - Make a readme
 
 Fix:
-
 
 
 
@@ -33,10 +46,6 @@ Structs
  - What they are, when they're used, what for
 
 Error Handing and Do-Catch with Guard Try
-
-
-
-
 
 Handling JSON files and nested JSON
 https://developer.apple.com/swift/blog/?id=37

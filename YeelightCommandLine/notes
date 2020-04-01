@@ -20,35 +20,36 @@ Do:
 
  - Make a readme
 
+
+
 Fix:
 
 
 
 Learn:
 
-Network classes
- - New socket and connect
- - Send and receive both UDP and TCP
- - Isolate socket from NWEndpoint.hostport
- - Listen on that port
- - Handling program flow with the network functions on a different queue/thread
+- Network classes
+    - New socket and connect
+    - Send and receive both UDP and TCP
+    - Isolate socket from NWEndpoint.hostport
+    - Listen on that port
+    - Handling program flow with the network functions on a different queue/thread
 
-Dispatch Queues
- - Async, sync, semaphores and QoS
+ - Dispatch Queues
+    - Async, sync, semaphores and QoS
 
-Enumerations
- - How to use them
+ - Enumerations
+    - How to use them
 
-Switch Cases
- - When and how to use them
+ - Switch Cases
+    - When and how to use them
 
-Structs
- - What they are, when they're used, what for
+ - Structs
+    - What they are, when they're used, what for
 
-Error Handing and Do-Catch with Guard Try
+ - Error Handing and Do-Catch with Guard Try
 
-Handling JSON files and nested JSON
-https://developer.apple.com/swift/blog/?id=37
+ - Handling JSON files and nested JSON
+    - https://developer.apple.com/swift/blog/?id=37
 
-
-
+ - Closures, escaping closures and completion handlers, typealias

@@ -8,15 +8,6 @@
 
 import Foundation
 
-// convert String to Int
-func stringIntConvert(String string: String) -> Int? {
-    if let integer = Int(string) {
-        return integer
-    } else {
-        return nil
-    }
-}
-
 
 func jsonEncoder(Command message: Any) throws -> Data {
     /*
@@ -35,7 +26,7 @@ func jsonEncoder(Command message: Any) throws -> Data {
 }
 
 
-func jsonDecoder(Response data: Data) throws -> [String] {
+func jsonDecoder(Response data: Data?) throws -> [String] {
     /*
      JSON RESPONSES
      
@@ -60,6 +51,11 @@ func jsonDecoder(Response data: Data) throws -> [String] {
     // Find error code and error message and throw error details
     // If error code and message not found, throw error on error object
     // If no "error" found, throw unknown error
+    
+    guard let data = data else {
+        throw JSONError.noData
+    }
+    
     let deserializer = try JSONSerialization.jsonObject(with: data, options: [])
     
     guard let jsonObject = deserializer as? [String:Any] else {

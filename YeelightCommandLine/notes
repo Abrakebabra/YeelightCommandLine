@@ -23,7 +23,7 @@ Do:
 
 
 Fix:
-
+ - Light should actually be a reference type in case it's ever copied.
 
 
 Learn:
@@ -35,7 +35,7 @@ Learn:
     - Listen on that port
     - Handling program flow with the network functions on a different queue/thread
 
- - Dispatch Queues
+ - Dispatch Queues and Groups
     - Async, sync, semaphores and QoS
 
  - Enumerations

@@ -9,9 +9,11 @@
 import Foundation
 
 
-func jsonEncoder(Command message: Any) throws -> Data {
+
+func jsonEncoder(Command message: [String:Any]) throws -> Data {
     /*
      JSON COMMANDS
+     [String:Any]
      {"id":1,"method":"set_default","params":[]}
      {"id":1,"method":"set_scene", "params": ["hsv", 300, 70, 100]}
      

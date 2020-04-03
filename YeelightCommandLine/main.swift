@@ -8,29 +8,9 @@
 
 import Foundation
 
-let connQueue = DispatchQueue(label: "Connection Queue")
-let procQueue = DispatchQueue(label: "Process Queue")
-let semaphore = DispatchSemaphore(value: 1)
-
-var lightsRemaining = 6
-
+var runProgram = true
 let light = Yeelight()
 light.discover()
-
-/*
-let lightCount: Int = 0
-var readyCount: Int = 0
-while lightCount > readyCount {
-    readyCount = 0
-    
-    for (key, _) in light.light {
-        
-        if light.light[key]?.conn.status == "ready" {
-            readyCount += 1
-        }
-    }
-}
-*/
 
 
 sleep(2)
@@ -39,15 +19,39 @@ for (key, value) in light.light {
     print("\(key): ip:\(value.ip)")
 }
 
+if light.light["0x00000000080394cb"] != nil {
+    print("has light")
+} else {
+    print("light not found")
+}
 
-while true {
+sleep(1)
+
+while runProgram == true {
     let input: String? = readLine()
     
-    if input == "exit" {
+    switch input {
+    case "on":
+        let message = """
+{"id":1, "method":"set_power", "params":["off", "smooth", 500]}\r\n
+""".data(using: .utf8)
+        
+        
+        light.light["0x00000000080394cb"]?.conn.testSend(message: message!)
+        
+    case "all off":
+        print("Off")
+        // turn off all statements
+    case "exit":
         for (key, _) in light.light {
-            light.light[key]?.conn.conn.cancel()
+            light.light[key]?.conn.tcpConn.cancel()
         }
-        sleep(1)
-        break
+        sleep(2)
+        runProgram = false
+        
+    default:
+        continue
     }
+    
 }
+print("LOOP ENDED")

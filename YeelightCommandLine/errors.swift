@@ -11,8 +11,7 @@ import Foundation
 
 enum DiscoveryError: Error {
     case tcpInitFailed(String)
-    case stateInitFailed(String)
-    case stringUnwrapFailed
+    case propertyStringUnwrapFailed
 }
 
 enum CommandError: Error {

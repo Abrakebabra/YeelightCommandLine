@@ -9,6 +9,10 @@
 import Foundation
 import Network
 
+let connQueue = DispatchQueue(label: "Connection Queue")
+let procQueue = DispatchQueue(label: "Process Queue")
+let semaphore = DispatchSemaphore(value: 1)
+
 
 // Get the local port opened to send
 // Return nil if no hostPort connection found

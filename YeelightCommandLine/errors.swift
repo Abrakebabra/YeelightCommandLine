@@ -26,3 +26,10 @@ enum JSONError: Error {
     case noData
     case unknownError
 }
+
+enum LightStateError: Error {
+    case param1(String)
+    case param2(String)
+    case param3(String)
+    case param4(String)
+}

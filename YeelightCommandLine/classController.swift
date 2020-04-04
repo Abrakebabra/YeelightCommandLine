@@ -24,7 +24,7 @@ import Network
 
 
 
-public class Yeelight {
+public class Controller {
     // Stores all discovered lights as [idSerial : Data]
     public var light: [String : Light] = [:]
     
@@ -35,6 +35,8 @@ public class Yeelight {
     // search message
     private static let searchMsg: String = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb"
     private static let searchBytes = searchMsg.data(using: .utf8)
+    
+    private static let udpQueue = DispatchQueue(label: "udpQueue")
     
     
     public func discover() {
@@ -66,9 +68,7 @@ public class Yeelight {
                     throw DiscoveryError.propertyStringUnwrapFailed
             }
             
-            let tcpConnection = try TCPConnection(TargetIP: ip, TargetPort: port, ID: idSerial)
-            
-            let state = Light(IP: ip, Port: port, IDSerial: idSerial, Conn: tcpConnection, Power: power, ColorMode: colorMode, Brightness: brightness, ColorTemp: colorTemp, RGB: rgb, Hue: hue, Sat: sat, Name: name, Model: model, Support: support)
+            // LIGHT CLASS HERE
             
             return state
         } // END createLight
@@ -142,6 +142,8 @@ public class Yeelight {
                 do {
                     let lightData: Light = try createLight(Properties: properties)
                     // save the light to class dictionary
+                    
+                    // REFLECT CHANGES IN LIGHT CLASS
                     self.light[lightData.idSerial] = lightData
                 }
                 catch let error {
@@ -163,7 +165,7 @@ public class Yeelight {
                     udpReplyHandler(NewConn: newConn)
                     
                 }
-                listener.start(queue: connQueue)
+                listener.start(queue: Controller.udpQueue)
             }
         }
         
@@ -175,10 +177,10 @@ public class Yeelight {
         self.light.removeAll(keepingCapacity: true)
         
         // Setup UDP connection
-        let udpSearchConn = NWConnection(host: Yeelight.multicastHost, port: Yeelight.multicastPort, using: .udp)
+        let udpSearchConn = NWConnection(host: Controller.multicastHost, port: Controller.multicastPort, using: .udp)
         
         // Start the connection
-        udpSearchConn.start(queue: connQueue)
+        udpSearchConn.start(queue: Controller.udpQueue)
         
         
         // Setup procedure to do when search message is sent
@@ -204,7 +206,7 @@ public class Yeelight {
         
         
         // Send search message
-        udpSearchConn.send(content: Yeelight.searchBytes, completion: awaitResponses)
+        udpSearchConn.send(content: Controller.searchBytes, completion: awaitResponses)
         
     } // END discover()
     

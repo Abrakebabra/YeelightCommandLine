@@ -10,7 +10,7 @@ import Foundation
 
 
 
-func jsonEncoder(Command message: [String:Any]) throws -> Data {
+func jsonEncoder(reqID: Int, method: String, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws -> Data {
     /*
      JSON COMMANDS
      [String:Any]
@@ -20,12 +20,34 @@ func jsonEncoder(Command message: [String:Any]) throws -> Data {
      {"id":1,"method":"get_prop","params":["power", "not_exist", "bright"]}
      */
     
-    // Take any dictionary, convert to JSON and convert to utf8 data
-    // Dictionary is created by individual command functions
-    let serialized = try JSONSerialization.data(withJSONObject: message, options: [])
+    // different commands have different value types
+    var parameters: [Any] = []
     
-    return serialized
-}
+    // in order, append parameters to array.
+    if let param1 = param1 {
+        parameters.append(param1)
+    }
+    if let param2 = param2 {
+        parameters.append(param2)
+    }
+    if let param3 = param3 {
+        parameters.append(param3)
+    }
+    if let param4 = param4 {
+        parameters.append(param4)
+    }
+    
+    let template: String = """
+    {"id":\(reqID), "method":\(method), "params":\(parameters)}\r\n
+    """
+    
+    guard let command: Data = template.data(using: .utf8) else {
+        throw CommandError.invalidString
+    }
+    
+    return command
+}  // jsonEncoder
+
 
 
 func jsonDecoder(Response data: Data?) throws -> [String] {
@@ -81,4 +103,4 @@ func jsonDecoder(Response data: Data?) throws -> [String] {
         }
     }
     return resultList
-}
+} // jsonDecode

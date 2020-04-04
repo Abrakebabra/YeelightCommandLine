@@ -10,40 +10,20 @@ import Foundation
 import Network
 
 
-public class Light {
-    let id: String
-    var name: String
+
+struct State {
     var power: Bool
     var colorMode: Int, brightness: Int
     var colorTemp: Int, rgb: Int, hue: Int, sat: Int
     let model: String // Might be useful for lights with limited abilities
     let support: String // Might be useful for lights with limited abilities
     
-    let ip: String, ipEndpoint: NWEndpoint.Host
-    let port: String, portEndpoint: NWEndpoint.Port
     
-    
-    let conn: NWConnection
-    var status: String
-    let tcpDispatchGroup: DispatchGroup
-    
-    let complete = NWConnection.SendCompletion.contentProcessed { (NWError) in
-        if NWError != nil {
-            print("TCP error in message sent:  \(NWError as Any)")
-        } else {
-            print("TCP message successfully sent")
-        }
-    }
-    
-    init(ip: String, port: String, id: String,
-         power: String,
-         colorMode: String, brightness: String,
-         colorTemp: String, rgb: String, hue: String, sat: String,
-         name: String,
-         model: String, support: String) throws {
-        
-        self.id = id
-        self.name = name
+    init(_ power: String,
+         _ colorMode: String, _ brightness: String,
+         _ colorTemp: String, _ rgb: String, _ hue: String, _ sat: String,
+         _ model: String,
+         _ support: String) {
         
         if power == "on" {
             self.power = true
@@ -87,48 +67,99 @@ public class Light {
         
         self.model = model
         self.support = support
-        
-        self.ip = ip
-        self.ipEndpoint = NWEndpoint.Host(self.ip)
-        self.port = port
-        guard let portEndpoint = NWEndpoint.Port(self.port) else {
+    }
+} // struct State
+
+
+
+struct TCPConnection {
+    let ipEndpoint: NWEndpoint.Host
+    let portEndpoint: NWEndpoint.Port
+    let conn: NWConnection
+    var status: String
+    let dispatchGroup: DispatchGroup
+    
+    
+    init(_ ip: String, _ port: String) throws {
+        self.ipEndpoint = NWEndpoint.Host(ip)
+        guard let portEndpoint = NWEndpoint.Port(port) else {
             throw DiscoveryError.tcpInitFailed("Port not found")
         }
         self.portEndpoint = portEndpoint
-        
         self.conn = NWConnection.init(host: self.ipEndpoint, port: self.portEndpoint, using: .tcp)
-        
         self.status = "unknown"
+        self.dispatchGroup = DispatchGroup()
+        self.conn.start(queue: connQueue)
+    }
+} // struct TCPConnection
+
+
+
+public class Light {
+    let id: String
+    var name: String
+    let ip: String
+    var state: State
+    var tcp: TCPConnection
+
+    let sendCompletion: NWConnection.SendCompletion
+    
+    
+    init(ip: String, port: String, id: String,
+         power: String,
+         colorMode: String, brightness: String,
+         colorTemp: String, rgb: String, hue: String, sat: String,
+         name: String,
+         model: String, support: String) throws {
         
-        self.tcpDispatchGroup = DispatchGroup()
+        self.id = id
+        self.name = name
+        self.ip = ip
         
-        self.conn.stateUpdateHandler = { (newState) in
-            switch(newState) {
-            case .setup:
-                self.status = "setup"
-            case .preparing:
-                self.status = "preparing"
-            case .ready:
-                self.status = "ready"
-                print("\(self.ip), \(self.id) ready")
-            case .waiting:
-                self.status = "waiting"
-                print("\(self.ip), \(self.id) waiting")
-            case .failed:
-                self.status = "failed"
-                print("\(self.ip), \(self.id) tcp connection failed.  Restarting.")
-                self.conn.restart()
-            case .cancelled:
-                self.status = "cancelled"
-                print("\(self.ip), \(self.id) tcp connection cancelled")
-            default:
-                self.status = "unknown"
-                print("Unknown error for \(self.ip), \(self.id).  Restarting.")
-                self.conn.restart()
+        // Holds the light's current state
+        self.state = State(power, colorMode, brightness, colorTemp, rgb, hue, sat, model, support)
+        
+        // Holds the connection
+        // throws if can't convert string to NWendpoint.Port
+        self.tcp = try TCPConnection(ip, port)
+        
+        
+        self.sendCompletion = NWConnection.SendCompletion.contentProcessed { (NWError) in
+            if NWError != nil {
+                print("TCP error in message sent:\n  ID: \(self.id)\n  IP: \(self.ip)\n  Error: \(NWError as Any)")
+            } else {
+                print("TCP message successfully sent to \(self.id), \(self.ip)")
             }
         }
         
-        self.conn.start(queue: connQueue)
+        
+        self.tcp.conn.stateUpdateHandler = { (newState) in
+            switch(newState) {
+            case .setup:
+                self.tcp.status = "setup"
+            case .preparing:
+                self.tcp.status = "preparing"
+            case .ready:
+                self.tcp.status = "ready"
+                print("\(self.ip), \(self.id) ready")
+            case .waiting:
+                self.tcp.status = "waiting"
+                print("\(self.ip), \(self.id) waiting")
+            case .failed:
+                self.tcp.status = "failed"
+                print("\(self.ip), \(self.id) tcp connection failed.  Restarting.")
+                self.tcp.conn.restart()
+            case .cancelled:
+                self.tcp.status = "cancelled"
+                print("\(self.ip), \(self.id) tcp connection cancelled")
+            default:
+                self.tcp.status = "unknown"
+                print("Unknown error for \(self.ip), \(self.id).  Restarting.")
+                self.tcp.conn.restart()
+            }
+        }
+        
+        
         
     } // Light.init()
     
@@ -145,23 +176,23 @@ public class Light {
         
         var responseData: Data?
         
-        self.conn.send(content: commandData, completion: complete)
+        self.tcp.conn.send(content: commandData, completion: self.sendCompletion)
         
-        self.tcpDispatchGroup.enter()
-        self.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, NWError) in
+        self.tcp.dispatchGroup.enter()
+        self.tcp.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, NWError) in
             // Data?, NWConnection.ContentContext?, Bool, NWError?
             if NWError != nil {
                 print(NWError as Any)
-                self.tcpDispatchGroup.leave()
+                self.tcp.dispatchGroup.leave()
                 return
                 
             } else {
                 responseData = data
-                self.tcpDispatchGroup.leave()
+                self.tcp.dispatchGroup.leave()
             }
         }
         
-        self.tcpDispatchGroup.wait()
+        self.tcp.dispatchGroup.wait()
         let reply = try jsonDecoder(Response: responseData)
         
         return reply

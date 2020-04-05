@@ -20,6 +20,13 @@ Do:
 
  - Make a readme
 
+ - ensure only method enum is passed on as valid method
+
+
+- // case "adjust_ct": - This doesn't make sense
+// case "adjust_color": - This doesn't make sense
+Asked yeelight developer forum.
+https://forum.yeelight.com/t/topic/17006
 
 
 Fix:

@@ -9,9 +9,8 @@
 import Foundation
 
 var runProgram = true
-let light = Yeelight()
-light.discover()
-
+let controller = Controller()
+controller.discover()
 
 sleep(2)
 

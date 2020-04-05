@@ -117,7 +117,7 @@ public class Controller {
         // handles replies received from lights with listener
         func udpReplyHandler(NewConn udpConn: NWConnection) {
             
-            udpConn.start(queue: connQueue)
+            udpConn.start(queue: self.udpQueue)
             
             udpConn.receiveMessage { (data, _, _, _) in
                 // Data?, contentContext?, Bool, NWError? (enum dns posix tcl)

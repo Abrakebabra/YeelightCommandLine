@@ -14,20 +14,22 @@ enum DiscoveryError: Error {
     case propertyStringUnwrapFailed
 }
 
-enum CommandError: Error {
-    case invalidString
-    case noResponse
+enum RequestError: Error {
+    case stringToData
+    case methodNotValid
 }
 
 enum JSONError: Error {
-    case responseError(String)
-    case errorObject
     case jsonObject
+    case idError
+    case errorObject
+    case responseError(String)
     case noData
     case unknownError
 }
 
-enum LightStateError: Error {
+enum LightStateUpdateError: Error {
+    case methodNotInSwitch(String)
     case param1(String)
     case param2(String)
     case param3(String)

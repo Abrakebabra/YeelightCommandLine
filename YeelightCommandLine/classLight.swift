@@ -21,15 +21,11 @@ struct State {
     var rgb: Int  // colorMode 1:  1-16777215 (hex: 0xFFFFFF)
     var hue: Int  // colorMode 3: 0-359
     var sat: Int  // colorMode 3:  0-100
-    let model: String // Might be useful for lights with limited abilities
-    let support: String // Might be useful for lights with limited abilities
     
     
     init(_ power: String,
          _ colorMode: String, _ brightness: String,
-         _ colorTemp: String, _ rgb: String, _ hue: String, _ sat: String,
-         _ model: String,
-         _ support: String) {
+         _ colorTemp: String, _ rgb: String, _ hue: String, _ sat: String) {
         
         if power == "on" {
             self.power = true
@@ -37,8 +33,7 @@ struct State {
             self.power = false
         }
         
-        // just in case a light that has been factory-reset has nil for properties that have not yet been used
-        // or do I want to throw an error?  It's not really an error for the user to deal with if the light hasn't initialised it and will do so later.
+        // default values just in case a light that has been factory-reset has nil for properties that have not yet been used
         
         if let colorModeInt = Int(colorMode) {
             self.colorMode = colorModeInt
@@ -70,10 +65,7 @@ struct State {
         } else {
             self.sat = 0
         }
-        
-        self.model = model
-        self.support = support
-    }
+    }// struct init
 } // struct State
 
 
@@ -124,9 +116,12 @@ public class Light {
     let id: String
     let ip: String
     var name: String
+    let model: String // Might be useful for lights with limited abilities
+    let support: String // Might be useful for lights with limited abilities
     var state: State
     var tcp: TCPConnection
     var requestTicket: Int = 0
+    var receiverLoop: Bool = true
     
     enum methodEnum {
         case set_ct_abx
@@ -170,9 +165,11 @@ public class Light {
         self.id = id
         self.name = name
         self.ip = ip
+        self.model = model
+        self.support = support
         
         // Holds the light's current state
-        self.state = State(power, colorMode, brightness, colorTemp, rgb, hue, sat, model, support)
+        self.state = State(power, colorMode, brightness, colorTemp, rgb, hue, sat)
         
         // Holds the connection
         // throws if can't convert string to NWendpoint.Port
@@ -192,8 +189,7 @@ public class Light {
                 print("\(self.ip), \(self.id) waiting")
             case .failed:
                 self.tcp.status = "failed"
-                print("\(self.ip), \(self.id) tcp connection failed.  Restarting.")
-                self.tcp.conn.restart()
+                print("\(self.ip), \(self.id) tcp connection failed")
             case .cancelled:
                 self.tcp.status = "cancelled"
                 print("\(self.ip), \(self.id) tcp connection cancelled")
@@ -205,11 +201,23 @@ public class Light {
         
         
         
-        // SETUP RECEIVE LOOP HERE?
-        
+        // Constantly receive
+        while self.receiverLoop == true {
+            self.tcp.dispatchQueue.sync {
+                self.receive()
+            }
+        }
         
         
     } // Light.init()
+    
+    
+    deinit {
+        self.receiverLoop = false
+        self.tcp.conn.cancel()
+        sleep(1) // gives time for everything to close up
+    } // Light.deinit()
+    
     
     
     // encode commands to required format for light
@@ -247,7 +255,7 @@ public class Light {
         }
         
         return request
-    }  // jsonEncoder
+    }  // Light.jsonEncoder()
     
     
     
@@ -255,53 +263,72 @@ public class Light {
         switch key {
         case "power":
             guard let power = value as? String else {
-                throw LightStateUpdateError.param1("power to String failed")
+                throw LightStateUpdateError.value("power to String failed")
             }
             if power == "on" {
                 self.state.power = true
             } else {
                 self.state.power = false
             }
+            
         case "bright":
             guard let brightness = value as? Int else {
-                throw LightStateUpdateError.param1("brightness to Int failed")
+                throw LightStateUpdateError.value("brightness to Int failed")
             }
             self.state.brightness = brightness
+            
         case "color_mode":
             guard let colorMode = value as? Int else {
-                //throw LightStateUpdateError.param2("colorTemp to Int failed")
+                throw LightStateUpdateError.value("colorTemp to Int failed")
             }
             self.state.colorMode = colorMode
+            
         case "ct":
             guard let colorTemp = value as? Int else {
-                //throw LightStateUpdateError.param2("colorTemp to Int failed")
+                throw LightStateUpdateError.value("colorTemp to Int failed")
             }
             self.state.colorTemp = colorTemp
+            
         case "rgb":
-            //
+            guard let rgb = value as? Int else {
+                throw LightStateUpdateError.value("rgb to Int failed")
+            }
+            self.state.rgb = rgb
+            
         case "hue":
-            //
+            guard let hue = value as? Int else {
+                throw LightStateUpdateError.value("hue to Int failed")
+            }
+            self.state.hue = hue
+            
+            
         case "sat":
-            //
+            guard let sat = value as? Int else {
+                throw LightStateUpdateError.value("sat to Int failed")
+            }
+            self.state.sat = sat
+            
         case "name":
-            //
+            guard let name = value as? String else {
+                throw LightStateUpdateError.value("name to String failed")
+            }
+            self.name = name
+            
         default:
-            print("Property \(key) not handled")
-        }
-    }
-    
-    
-    
+            // don't throw error yet - might have more states that will update than anticipated
+            print("Property key (\(key)) not handled")
+        } // switch
+    } // Light.updateState()
     
     
     // decode response received from light
-    fileprivate func jsonDecoder(Response data: Data?) throws -> (Int, [String]) {
+    fileprivate func jsonDecodeAndHandle(_ data: Data?) throws {
         /*
          JSON RESPONSES
          
-         Standard Responses     [String]
+         Standard Responses
          {"id":1, "result":["ok"]}
-         get_pro Response       [String]
+         get_pro Response
          {"id":1, "result":["on", "", "100"]}
          
          Error Response
@@ -314,30 +341,17 @@ public class Light {
          Won't use this response.
          cron methods can only turn off light after X minutes.  No need for a timer function.
          
-         Secondary response:
+         Sent to all tcp connections when state changed:
          {"method":"props","params":{"ct":6500}}
          */
         
-        
         /*
-         NEW PLAN:
-         Is there "id"?
-         yes - Handle responses or errors
-         no:
-         Is there "method"?
-         yes - handle method
-         no - invalid response - print?
+         Deserialize to json object
+         Top level "result" key?  If yes, print results.
+         Top level "error" key?  If yes, print error.
+         Top level "params" key?  If yes, update light state with new data.
  
         */
-        
-        
-        // Deserialize the data to a JSON object
-        // Inspect contents of JSON object and look for "result" (ignore "id")
-        // If no "result" found, look for "error"
-        // Find error code and error message and throw error details
-        // If error code and message not found, throw error on error object
-        // If no "error" found, throw unknown error
-        
         
         // Is there data?
         guard let data = data else {
@@ -345,20 +359,16 @@ public class Light {
         }
         
         // jsonserialization object
-        let deserializer = try JSONSerialization.jsonObject(with: data, options: [])
+        let json = try JSONSerialization.jsonObject(with: data, options: [])
         
         // unpack the top level json object
-        guard let jsonObject = deserializer as? [String:Any] else {
+        guard let topLevel = json as? [String:Any] else {
             throw JSONError.jsonObject
         }
         
-        // does top level object have "id"?
-        // if not, does top level object have "method"?
-        // if not, throw an error
-        
         // results
-        if let resultList = jsonObject["result"] as? [String] {
-            if let id = jsonObject["id"] as? Int {
+        if let resultList = topLevel["result"] as? [String] {
+            if let id = topLevel["id"] as? Int {
                 // if there is a resultList
                 print("id \(id): \(resultList)")
             } else {
@@ -366,7 +376,7 @@ public class Light {
             }
             
         // errors
-        } else if let error = jsonObject["error"] as? [String:Any] {
+        } else if let error = topLevel["error"] as? [String:Any] {
             guard
                 let errorCode: String = error["code"] as? String,
                 let errorMessage: String = error["message"] as? String
@@ -375,177 +385,28 @@ public class Light {
                     throw JSONError.errorObject
             }
             
-            if let id = jsonObject["id"] as? Int {
+            if let id = topLevel["id"] as? Int {
                 throw JSONError.response("id: \(id)  Error Code \(errorCode): \(errorMessage)")
             } else {
                 throw JSONError.response("Error Code \(errorCode): \(errorMessage)")
             }
         
         // change in state
-        } else if let method = jsonObject["method"] as? String {
-            guard let changedStates =
-                jsonObject["params"] as? [String:Any] else {
-                    throw JSONError.params
-            }
-            
-            for (key, value) in changedStates {
+        } else if let changedState = topLevel["params"] as? [String:Any] {
+            for (key, value) in changedState {
                 // switch function for updating state
+                try self.updateState(key, value)
             }
-            
             
         } else {
-            throw JSONError.unknown(jsonObject)
+            throw JSONError.unknown(json)
         }
         
-        
-        
-        
-        
-        
-       
-    } // jsonDecode
+    } // Light.jsonDecode()
     
     
-    
-    
-    
-    
-    
-    
-    
-    
-    // NO LONGER REQUIRED?
-    // updates the state if response from light is "ok"
-    fileprivate func OLDupdateState(_ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws {
-        
-        switch method {
-        case .set_ct_abx:
-            
-            guard let colorTemp = param1 as? Int else {
-                throw LightStateUpdateError.param1("colorTemp to Int failed")
-            }
-            self.state.colorTemp = colorTemp
-            self.state.colorMode = 2
-            
-        case .set_rgb:
-            
-            guard let rgb = param1 as? Int else {
-                throw LightStateUpdateError.param1("rgb to Int failed")
-            }
-            self.state.rgb = rgb
-            self.state.colorMode = 1
-            
-        case .set_hsv:
-            
-            guard let hue = param1 as? Int else {
-                throw LightStateUpdateError.param1("hue to Int failed")
-            }
-            self.state.hue = hue
-            
-            guard let sat = param2 as? Int else {
-                throw LightStateUpdateError.param2("sat to Int failed")
-            }
-            self.state.sat = sat
-            self.state.colorMode = 3
-            
-        case .set_bright:
-            
-            guard let brightness = param1 as? Int else {
-                throw LightStateUpdateError.param1("brightness to Int failed")
-            }
-            self.state.brightness = brightness
-            
-        case .set_power:
-            
-            guard let power = param1 as? String else {
-                throw LightStateUpdateError.param1("power to String failed")
-            }
-            if power == "on" {
-                self.state.power = true
-            } else {
-                self.state.power = false
-            }
-            
-        case .set_scene:
-            
-            // action trying to change rgb, ct or hsv
-            guard let action = param1 as? String else {
-                throw LightStateUpdateError.param1("set_scene to String failed")
-            }
-            
-            switch action {
-            case "color":
-                guard let rgb = param2 as? Int else {
-                    throw LightStateUpdateError.param2("rgb to Int failed")
-                }
-                self.state.rgb = rgb
-                self.state.colorMode = 1
-                
-                guard let brightness = param3 as? Int else {
-                    throw LightStateUpdateError.param3("brightness to Int failed")
-                }
-                self.state.brightness = brightness
-                
-            case "ct":
-                guard let colorTemp = param2 as? Int else {
-                    throw LightStateUpdateError.param2("colorTemp to Int failed")
-                }
-                self.state.colorTemp = colorTemp
-                self.state.colorMode = 2
-                
-                guard let brightness = param3 as? Int else {
-                    throw LightStateUpdateError.param3("brightness to Int failed")
-                }
-                self.state.brightness = brightness
-                
-            case "hsv":
-                guard let hue = param2 as? Int else {
-                    throw LightStateUpdateError.param2("hue to Int failed")
-                }
-                self.state.hue = hue
-                
-                guard let sat = param3 as? Int else {
-                    throw LightStateUpdateError.param3("sat to Int failed")
-                }
-                self.state.sat = sat
-                self.state.colorMode = 3
-                
-                guard let brightness = param4 as? Int else {
-                    throw LightStateUpdateError.param4("brightness to Int failed")
-                }
-                self.state.brightness = brightness
-                
-            default:
-                throw LightStateUpdateError.param1("Action not color, ct or hsv")
-            }
-            
-        case .set_name:
-            
-            guard let name = param1 as? String else {
-                throw LightStateUpdateError.param1("name to Int failed")
-            }
-            self.name = name
-            
-        case .adjust_bright:
-            
-            guard let change = param1 as? Int else {
-                throw LightStateUpdateError.param1("adjust_bright to Int failed")
-            }
-            let newValue = self.state.brightness + change
-            if newValue < 1 {
-                self.state.brightness = 1
-            } else if newValue > 100 {
-                self.state.brightness = 100
-            } else {
-                self.state.brightness = newValue
-            }
-            
-        } // switch method
-    } // updateState
-    
-    
-    // NOT COMPLETE
-    fileprivate func receiveAndUpdateState(_ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) {
+    // this is called in the init function in a loop
+    fileprivate func receive() {
         self.tcp.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, NWError) in
             // Data?, NWConnection.ContentContext?, Bool, NWError?
             if NWError != nil {
@@ -554,24 +415,14 @@ public class Light {
             }
             
             do {
-                let response: (Int, [String]) = try self.jsonDecoder(Response: data)
-                // handle "ok" response
-                // handle get_prop response
-                // handle error response
-                if response.1[0] == "ok" {
-                    try self.updateState(method, param1, param2, param3, param4)
-                } else if ...
-                
-                
+                // receives tcp messages and handles them
+                try self.jsonDecodeAndHandle(data)
             }
             catch let error {
                 print(error)
             }
-            
-            
-            
         } // conn.receive
-    } // receiver function
+    } // Light.receiveAndUpdateState()
     
     
     // Send a command to the light
@@ -595,16 +446,12 @@ public class Light {
         let sendCompletion = NWConnection.SendCompletion.contentProcessed { (NWError) in
             if NWError != nil {
                 print("TCP error in message sent:\n  ID: \(self.id)\n  IP: \(self.ip)\n  Error: \(NWError as Any)")
-                
-            } else {
-                // NOT REQUIRED IF CONSTANT LOOP IS RUNNING IN INIT()
-                self.receiveAndUpdateState(method, param1, param2, param3, param4)
             }
-        } // sendCompletion
+        } // let sendCompletion
         
         self.tcp.conn.send(content: requestContent, completion: sendCompletion)
         
-    } // communicate
+    } // Light.communicate()
     
     
     

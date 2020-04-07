@@ -14,27 +14,27 @@ enum DiscoveryError: Error {
     case propertyStringUnwrapFailed
 }
 
+
 enum RequestError: Error {
     case stringToData
-    case methodNotValid
+    case methodNotValid // not yet used
 }
+
 
 enum JSONError: Error {
     case jsonObject
-    case id
     case errorObject
     case response(String)
     case noData
-    case params
     case unknown(Any?)
 }
 
 
 // change this or make a new one to reflect the new state updater?
 enum LightStateUpdateError: Error {
-    case methodNotInSwitch(String)
-    case param1(String)
-    case param2(String)
-    case param3(String)
-    case param4(String)
+    case value(String)
+    case param1(String) // not needed?
+    case param2(String) // not needed?
+    case param3(String) // not needed?
+    case param4(String) // not needed?
 }

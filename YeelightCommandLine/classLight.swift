@@ -18,7 +18,7 @@ struct State {
     var colorMode: Int  //  Modes:  1 RGB, 2 Color Temp, 3 HSV
     var brightness: Int  // Percentage:  1-100  (0 not valid)
     var colorTemp: Int  // colorMode 2:  1700-6500 (Yeelight 2)
-    var rgb: Int  // colorMode 1:  0-16777215 (hex: 0xFFFFFF)
+    var rgb: Int  // colorMode 1:  1-16777215 (hex: 0xFFFFFF)
     var hue: Int  // colorMode 3: 0-359
     var sat: Int  // colorMode 3:  0-100
     let model: String // Might be useful for lights with limited abilities
@@ -84,7 +84,7 @@ struct TCPConnection {
     let conn: NWConnection
     var status: String
     let dispatchQueue: DispatchQueue
-    let dispatchGroup: DispatchGroup
+    let dispatchGroup: DispatchGroup // Might not use this
     
     
     init(_ ip: String, _ port: String) throws {
@@ -95,7 +95,7 @@ struct TCPConnection {
         self.portEndpoint = portEndpoint
         self.conn = NWConnection.init(host: self.ipEndpoint, port: self.portEndpoint, using: .tcp)
         self.status = "unknown"
-        self.dispatchQueue = DispatchQueue(label: "tcpConn Queue")
+        self.dispatchQueue = DispatchQueue(label: "tcpConn Queue", attributes: .concurrent)
         self.dispatchGroup = DispatchGroup()
         
         self.conn.start(queue: self.dispatchQueue)
@@ -120,6 +120,7 @@ struct TCPConnection {
 
 
 public class Light {
+    
     let id: String
     let ip: String
     var name: String
@@ -201,6 +202,13 @@ public class Light {
                 print("Unknown status for \(self.ip), \(self.id)")
             } // switch
         } // stateUpdateHandler
+        
+        
+        
+        // SETUP RECEIVE LOOP HERE?
+        
+        
+        
     } // Light.init()
     
     
@@ -242,6 +250,50 @@ public class Light {
     }  // jsonEncoder
     
     
+    
+    fileprivate func updateState(_ key: String, _ value: Any) throws {
+        switch key {
+        case "power":
+            guard let power = value as? String else {
+                throw LightStateUpdateError.param1("power to String failed")
+            }
+            if power == "on" {
+                self.state.power = true
+            } else {
+                self.state.power = false
+            }
+        case "bright":
+            guard let brightness = value as? Int else {
+                throw LightStateUpdateError.param1("brightness to Int failed")
+            }
+            self.state.brightness = brightness
+        case "color_mode":
+            guard let colorMode = value as? Int else {
+                //throw LightStateUpdateError.param2("colorTemp to Int failed")
+            }
+            self.state.colorMode = colorMode
+        case "ct":
+            guard let colorTemp = value as? Int else {
+                //throw LightStateUpdateError.param2("colorTemp to Int failed")
+            }
+            self.state.colorTemp = colorTemp
+        case "rgb":
+            //
+        case "hue":
+            //
+        case "sat":
+            //
+        case "name":
+            //
+        default:
+            print("Property \(key) not handled")
+        }
+    }
+    
+    
+    
+    
+    
     // decode response received from light
     fileprivate func jsonDecoder(Response data: Data?) throws -> (Int, [String]) {
         /*
@@ -249,18 +301,35 @@ public class Light {
          
          Standard Responses     [String]
          {"id":1, "result":["ok"]}
-         
          get_pro Response       [String]
          {"id":1, "result":["on", "", "100"]}
-         
-         cron_get Response      [[String:Int]]
-         {"id":1, "result":[{"type": 0, "delay": 15, "mix": 0}]}
-         Will not accommodate this response within jsonDecoder.  If I use it, I'll make a separate function.  The function will need to return an any type to be dealt with after the jsonDecoder function has been called.
          
          Error Response
          {"id":2, "error":{"code":-1, “message”:"unsupported method"}}
          [String:[String:Any]]
+         
+         UNUSED:
+         cron_get Response      [[String:Int]]
+         {"id":1, "result":[{"type": 0, "delay": 15, "mix": 0}]}
+         Won't use this response.
+         cron methods can only turn off light after X minutes.  No need for a timer function.
+         
+         Secondary response:
+         {"method":"props","params":{"ct":6500}}
          */
+        
+        
+        /*
+         NEW PLAN:
+         Is there "id"?
+         yes - Handle responses or errors
+         no:
+         Is there "method"?
+         yes - handle method
+         no - invalid response - print?
+ 
+        */
+        
         
         // Deserialize the data to a JSON object
         // Inspect contents of JSON object and look for "result" (ignore "id")
@@ -269,42 +338,85 @@ public class Light {
         // If error code and message not found, throw error on error object
         // If no "error" found, throw unknown error
         
+        
+        // Is there data?
         guard let data = data else {
             throw JSONError.noData
         }
         
+        // jsonserialization object
         let deserializer = try JSONSerialization.jsonObject(with: data, options: [])
         
+        // unpack the top level json object
         guard let jsonObject = deserializer as? [String:Any] else {
             throw JSONError.jsonObject
         }
         
-        guard let id = jsonObject["id"] as? Int else {
-            throw JSONError.idError
+        // does top level object have "id"?
+        // if not, does top level object have "method"?
+        // if not, throw an error
+        
+        // results
+        if let resultList = jsonObject["result"] as? [String] {
+            if let id = jsonObject["id"] as? Int {
+                // if there is a resultList
+                print("id \(id): \(resultList)")
+            } else {
+                print("No id: \(resultList)")
+            }
+            
+        // errors
+        } else if let error = jsonObject["error"] as? [String:Any] {
+            guard
+                let errorCode: String = error["code"] as? String,
+                let errorMessage: String = error["message"] as? String
+                else {
+                    // if can't unpack error object
+                    throw JSONError.errorObject
+            }
+            
+            if let id = jsonObject["id"] as? Int {
+                throw JSONError.response("id: \(id)  Error Code \(errorCode): \(errorMessage)")
+            } else {
+                throw JSONError.response("Error Code \(errorCode): \(errorMessage)")
+            }
+        
+        // change in state
+        } else if let method = jsonObject["method"] as? String {
+            guard let changedStates =
+                jsonObject["params"] as? [String:Any] else {
+                    throw JSONError.params
+            }
+            
+            for (key, value) in changedStates {
+                // switch function for updating state
+            }
+            
+            
+        } else {
+            throw JSONError.unknown(jsonObject)
         }
         
-        guard let resultList = jsonObject["result"] as? [String] else {
-            if let error = jsonObject["error"] as? [String:Any] {
-                
-                guard
-                    let errorCode: String = error["code"] as? String,
-                    let errorMessage: String = error["message"] as? String
-                    else {
-                        throw JSONError.errorObject
-                }
-                
-                throw JSONError.responseError("Error Code \(errorCode): \(errorMessage)")
-                
-            } else {
-                throw JSONError.unknownError
-            }
-        }
-        return (id, resultList)
+        
+        
+        
+        
+        
+       
     } // jsonDecode
     
     
+    
+    
+    
+    
+    
+    
+    
+    
+    // NO LONGER REQUIRED?
     // updates the state if response from light is "ok"
-    fileprivate func updateState(_ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws {
+    fileprivate func OLDupdateState(_ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws {
         
         switch method {
         case .set_ct_abx:
@@ -446,7 +558,7 @@ public class Light {
                 // handle "ok" response
                 // handle get_prop response
                 // handle error response
-                if response[1][0] == "ok" {
+                if response.1[0] == "ok" {
                     try self.updateState(method, param1, param2, param3, param4)
                 } else if ...
                 
@@ -485,6 +597,7 @@ public class Light {
                 print("TCP error in message sent:\n  ID: \(self.id)\n  IP: \(self.ip)\n  Error: \(NWError as Any)")
                 
             } else {
+                // NOT REQUIRED IF CONSTANT LOOP IS RUNNING IN INIT()
                 self.receiveAndUpdateState(method, param1, param2, param3, param4)
             }
         } // sendCompletion

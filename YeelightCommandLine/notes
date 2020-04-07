@@ -7,21 +7,27 @@ Do:
     - Get individual light properties
     - Create new tcp connection to each light
     - Save the light connection and properties
- - Create command functions
-    - Helper functions for various RGB notations
-        - Both rgb to single int, and reverse.  Maybe hex, or another format?
-    - Encode JSON
-    - Listen for response
-        - decode JSON
-    - If response received, save command to light properties
-    - Music mode?  Create separate TCP connection
-    - Color Flow?
+- Light connection:
+     - Save properties
+     - Save connection
+     - Encode JSON
+
+    As a loop in a separate thread
+     - Listen for responses
+     - When responses are received, filter between
+         - Confirmation of received command messages
+         - Error messages
+         - Change of state
+
+
+     - Music mode?  Create separate TCP connection
+     - Color Flow?
  - Work on main program with commands
 
  - Make a readme
 
  - ensure only method enum is passed on as valid method
-
+3
 
 - // case "adjust_ct": - This doesn't make sense
 // case "adjust_color": - This doesn't make sense
@@ -60,3 +66,16 @@ Learn:
     - https://developer.apple.com/swift/blog/?id=37
 
  - Closures, escaping closures and completion handlers, typealias
+
+
+
+
+
+
+
+About Lights
+
+Responses:
+Actually provides 2 responses.
+{"id":1,"result":["ok"]}
+{"method":"props","params":{"ct":6500}}

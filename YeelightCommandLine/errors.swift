@@ -21,13 +21,16 @@ enum RequestError: Error {
 
 enum JSONError: Error {
     case jsonObject
-    case idError
+    case id
     case errorObject
-    case responseError(String)
+    case response(String)
     case noData
-    case unknownError
+    case params
+    case unknown(Any?)
 }
 
+
+// change this or make a new one to reflect the new state updater?
 enum LightStateUpdateError: Error {
     case methodNotInSwitch(String)
     case param1(String)

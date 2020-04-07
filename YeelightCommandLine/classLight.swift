@@ -65,7 +65,7 @@ struct State {
         } else {
             self.sat = 0
         }
-    }// struct init
+    } // init()
 } // struct State
 
 
@@ -73,6 +73,7 @@ struct State {
 struct TCPConnection {
     let ipEndpoint: NWEndpoint.Host
     let portEndpoint: NWEndpoint.Port
+    
     let conn: NWConnection
     var status: String
     let dispatchQueue: DispatchQueue
@@ -96,30 +97,33 @@ struct TCPConnection {
 
 
 
-////////////////////////////////////////////////////////////////////////////
-
-
-// CLASS
-
-
-
-/*
- Send message
- - Currently receiving?  If not...
-  - In new thread, open receive and mark as currently receiving
-  -
- */
-
-
-public class Light {
-    
+struct Info {
     let id: String
     let ip: String
     var name: String
     let model: String // Might be useful for lights with limited abilities
     let support: String // Might be useful for lights with limited abilities
+    
+    init(_ id: String, _ ip: String, _ name: String, _ model: String, _ support: String) {
+        self.id = id
+        self.ip = ip
+        self.name = name
+        self.model = model
+        self.support = support
+    }
+} // struct Info
+
+
+
+////////////////////////////////////////////////////////////////////////////
+
+
+
+public class Light {
+    
     var state: State
     var tcp: TCPConnection
+    var info: Info
     var requestTicket: Int = 0
     var receiverLoop: Bool = true
     
@@ -153,20 +157,14 @@ public class Light {
             case .adjust_bright:
                 return "adjust_bright"
             }
-        }
-    }
+        } // var String
+    } // methodEnum
     
     
-    init(_ id: String, _ ip: String, _ port: String, _ name: String,
+    init(_ id: String, _ ip: String, _ port: String,
          _ power: String, _ colorMode: String, _ brightness: String,
          _ colorTemp: String, _ rgb: String, _ hue: String, _ sat: String,
-         _ model: String, _ support: String) throws {
-        
-        self.id = id
-        self.name = name
-        self.ip = ip
-        self.model = model
-        self.support = support
+         _ name: String, _ model: String, _ support: String) throws {
         
         // Holds the light's current state
         self.state = State(power, colorMode, brightness, colorTemp, rgb, hue, sat)
@@ -174,6 +172,9 @@ public class Light {
         // Holds the connection
         // throws if can't convert string to NWendpoint.Port
         self.tcp = try TCPConnection(ip, port)
+        
+        // Holds supporting information and identifiers
+        self.info = Info(id, ip, name, model, support)
         
         self.tcp.conn.stateUpdateHandler = { (newState) in
             switch(newState) {
@@ -183,25 +184,24 @@ public class Light {
                 self.tcp.status = "preparing"
             case .ready:
                 self.tcp.status = "ready"
-                print("\(self.ip), \(self.id) ready")
+                print("\(self.info.ip), \(self.info.id) ready")
             case .waiting:
                 self.tcp.status = "waiting"
-                print("\(self.ip), \(self.id) waiting")
+                print("\(self.info.ip), \(self.info.id) waiting")
             case .failed:
                 self.tcp.status = "failed"
-                print("\(self.ip), \(self.id) tcp connection failed")
+                print("\(self.info.ip), \(self.info.id) tcp connection failed")
             case .cancelled:
                 self.tcp.status = "cancelled"
-                print("\(self.ip), \(self.id) tcp connection cancelled")
+                print("\(self.info.ip), \(self.info.id) tcp connection cancelled")
             default:
                 self.tcp.status = "unknown"
-                print("Unknown status for \(self.ip), \(self.id)")
+                print("Unknown status for \(self.info.ip), \(self.info.id)")
             } // switch
         } // stateUpdateHandler
         
         
-        
-        // Constantly receive
+        // A constant receiver
         while self.receiverLoop == true {
             self.tcp.dispatchQueue.sync {
                 self.receive()
@@ -219,46 +219,7 @@ public class Light {
     } // Light.deinit()
     
     
-    
-    // encode commands to required format for light
-    fileprivate func jsonEncoder(_ reqID: Int, _ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws -> Data {
-        /*
-         JSON COMMANDS
-         {"id":1,"method":"set_default","params":[]}
-         {"id":1,"method":"set_scene", "params": ["hsv", 300, 70, 100]}
-         {"id":1,"method":"get_prop","params":["power", "not_exist", "bright"]}
-         */
-        
-        // different commands have different value types
-        var parameters: [Any] = []
-        
-        // in order, append parameters to array.
-        if let param1 = param1 {
-            parameters.append(param1)
-        }
-        if let param2 = param2 {
-            parameters.append(param2)
-        }
-        if let param3 = param3 {
-            parameters.append(param3)
-        }
-        if let param4 = param4 {
-            parameters.append(param4)
-        }
-
-        let template: String = """
-        {"id":\(reqID), "method":\(method.string), "params":\(parameters)}\r\n
-        """
-        
-        guard let request: Data = template.data(using: .utf8) else {
-            throw RequestError.stringToData
-        }
-        
-        return request
-    }  // Light.jsonEncoder()
-    
-    
-    
+    // update the state of the light
     fileprivate func updateState(_ key: String, _ value: Any) throws {
         switch key {
         case "power":
@@ -312,7 +273,7 @@ public class Light {
             guard let name = value as? String else {
                 throw LightStateUpdateError.value("name to String failed")
             }
-            self.name = name
+            self.info.name = name
             
         default:
             // don't throw error yet - might have more states that will update than anticipated
@@ -321,7 +282,7 @@ public class Light {
     } // Light.updateState()
     
     
-    // decode response received from light
+    // decode response received from light and handle them
     fileprivate func jsonDecodeAndHandle(_ data: Data?) throws {
         /*
          JSON RESPONSES
@@ -399,10 +360,48 @@ public class Light {
             }
             
         } else {
-            throw JSONError.unknown(json)
+            throw JSONError.unknown(json as Any)
         }
         
     } // Light.jsonDecode()
+    
+    
+    // encode commands to required format for light
+    fileprivate func jsonEncoder(_ reqID: Int, _ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws -> Data {
+        /*
+         JSON COMMANDS
+         {"id":1,"method":"set_default","params":[]}
+         {"id":1,"method":"set_scene", "params": ["hsv", 300, 70, 100]}
+         {"id":1,"method":"get_prop","params":["power", "not_exist", "bright"]}
+         */
+        
+        // different commands have different value types
+        var parameters: [Any] = []
+        
+        // in order, append parameters to array.
+        if let param1 = param1 {
+            parameters.append(param1)
+        }
+        if let param2 = param2 {
+            parameters.append(param2)
+        }
+        if let param3 = param3 {
+            parameters.append(param3)
+        }
+        if let param4 = param4 {
+            parameters.append(param4)
+        }
+        
+        let template: String = """
+        {"id":\(reqID), "method":\(method.string), "params":\(parameters)}\r\n
+        """
+        
+        guard let request: Data = template.data(using: .utf8) else {
+            throw RequestError.stringToData
+        }
+        
+        return request
+    }  // Light.jsonEncoder()
     
     
     // this is called in the init function in a loop
@@ -419,7 +418,7 @@ public class Light {
                 try self.jsonDecodeAndHandle(data)
             }
             catch let error {
-                print(error)
+                print(error as Any)
             }
         } // conn.receive
     } // Light.receiveAndUpdateState()
@@ -445,7 +444,7 @@ public class Light {
         
         let sendCompletion = NWConnection.SendCompletion.contentProcessed { (NWError) in
             if NWError != nil {
-                print("TCP error in message sent:\n  ID: \(self.id)\n  IP: \(self.ip)\n  Error: \(NWError as Any)")
+                print("TCP error in message sent:\n  ID: \(self.info.id)\n  IP: \(self.info.ip)\n  Error: \(NWError as Any)")
             }
         } // let sendCompletion
         

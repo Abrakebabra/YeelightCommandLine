@@ -36,7 +36,45 @@ https://forum.yeelight.com/t/topic/17006
 
 
 Fix:
- - Light should actually be a reference type in case it's ever copied.
+ - Sort out error names: Only enum cases are printed, not enum name itself.
+ - Light should actually be a reference type in case it's ever copied. DONE
+
+
+
+
+Last login: Wed Apr  8 03:55:25 on ttys002
+Keiths-MacBook-Pro:~ keithlee$ /Users/keithlee/Library/Developer/Xcode/DerivedData/YeelightCommandLine-hangmkwvyhrhxfgzniqkugropnmk/Build/Products/Debug/YeelightCommandLine ; exit;
+udp searchBytes sent!
+connection found!
+connection found!
+connection found!
+connection found!
+connection found!
+message received
+479 bytes
+parsing properties...
+found property id
+creating new light...
+light not found
+Awaiting input
+exit
+LOOP ENDED
+logout
+Saving session...
+...copying shared history...
+...saving history...truncating history files...
+...completed.
+
+[Process completed]
+
+
+
+
+
+
+
+
+
 
 
 Learn:
@@ -145,7 +183,13 @@ METHODS:
 
 
 
-
+LIGHT IDs:
+# 0x0000000007e71dfa - stand mid
+# 0x0000000007e74620 - tv
+# 0x00000000080394cb - stand top
+# 0x00000000080477df - stand bottom
+# 0x00000000080188f1- back
+# 0x0000000007e71ffd - bike
 
 
 

@@ -11,7 +11,8 @@ import Foundation
 
 enum DiscoveryError: Error {
     case tcpInitFailed(String)
-    case propertyStringUnwrapFailed
+    case propertyKey
+    case idValue
 }
 
 
@@ -33,8 +34,4 @@ enum JSONError: Error {
 // change this or make a new one to reflect the new state updater?
 enum LightStateUpdateError: Error {
     case value(String)
-    case param1(String) // not needed?
-    case param2(String) // not needed?
-    case param3(String) // not needed?
-    case param4(String) // not needed?
 }

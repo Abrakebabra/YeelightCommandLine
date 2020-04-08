@@ -18,7 +18,7 @@ testQueue.async {
 }
 
 
-sleep(3)
+sleep(2)
 
 for (key, value) in controller.lights {
     print("\(key): ip:\(value.info.ip)")
@@ -31,7 +31,6 @@ if controller.lights["0x0000000007e71ffd"] != nil {
     print("light not found")
 }
 
-sleep(1)
 
 while runProgram == true {
     print("Awaiting input")
@@ -54,6 +53,25 @@ while runProgram == true {
             print(error)
         }
         
+    case "allOn":
+        for (_, value) in controller.lights {
+            do {
+                try value.communicate(method: Light.methodEnum.set_power, "on", "sudden", 0)
+            }
+            catch let error {
+                print(error)
+            }
+        }
+        
+    case "allOff":
+        for (_, value) in controller.lights {
+            do {
+                try value.communicate(method: Light.methodEnum.set_power, "off", "sudden", 0)
+            }
+            catch let error {
+                print(error)
+            }
+        }
     case "exit":
         for (key, _) in controller.lights {
             controller.lights[key]?.tcp.conn.cancel()
@@ -66,4 +84,4 @@ while runProgram == true {
     }
     
 }
-print("LOOP ENDED")
+print("PROGRAM END")

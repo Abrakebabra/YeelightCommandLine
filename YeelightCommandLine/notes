@@ -42,34 +42,6 @@ Fix:
 
 
 
-Last login: Wed Apr  8 03:55:25 on ttys002
-Keiths-MacBook-Pro:~ keithlee$ /Users/keithlee/Library/Developer/Xcode/DerivedData/YeelightCommandLine-hangmkwvyhrhxfgzniqkugropnmk/Build/Products/Debug/YeelightCommandLine ; exit;
-udp searchBytes sent!
-connection found!
-connection found!
-connection found!
-connection found!
-connection found!
-message received
-479 bytes
-parsing properties...
-found property id
-creating new light...
-light not found
-Awaiting input
-exit
-LOOP ENDED
-logout
-Saving session...
-...copying shared history...
-...saving history...truncating history files...
-...completed.
-
-[Process completed]
-
-
-
-
 
 
 

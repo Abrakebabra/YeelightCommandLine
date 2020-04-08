@@ -37,7 +37,7 @@ public class Controller {
     private static let searchBytes = searchMsg.data(using: .utf8)
     
     private let udpQueue = DispatchQueue(label: "udpQueue")
-    let procQueue = DispatchQueue(label: "Process Queue")
+    let procQueue = DispatchQueue(label: "Process Queue", attributes: .concurrent)
     
     // aliases easier to read
     typealias Property = String
@@ -130,7 +130,6 @@ public class Controller {
             return
         }
         
-        print("parsing properties...")
         // separate properties into dictionary to inspect
         let properties: [Property:Value] = self.parseData(Decoded: decoded)
         
@@ -139,9 +138,8 @@ public class Controller {
         
         // save the light to class dictionary
         if let id = properties["id"] {
-            print("found property id")
+            
             do {
-                print("creating new light...")
                 // Add new light to dictionary
                 self.lights[id] = try self.createLight(properties)
             }
@@ -163,16 +161,16 @@ public class Controller {
         if let listener = try? NWListener(using: .udp, on: port) {
             listener.newConnectionHandler = { (udpNewConn) in
                 // create connection, listen to reply and create lights from data received
-                print("connection found!")
+                
                 udpNewConn.start(queue: self.udpQueue)
                 
                 udpNewConn.receiveMessage { (data, _, _, NWError) in
                     if NWError != nil {
                         print(NWError as Any)
                     }
-                    print("message received")
+                    
                     if let data = data {
-                        print(data)
+                        
                         self.udpDecodeHandler(data)
                     }
                     
@@ -238,8 +236,7 @@ public class Controller {
                 print(NWError as Any)
                 return
             }
-            print("udp searchBytes sent!")
-        }
+        } // sendComplete
         
         // Send search message
         udpSearchConn.send(content: Controller.searchBytes, completion: sendComplete)

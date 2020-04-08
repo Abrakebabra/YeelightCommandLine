@@ -13,14 +13,14 @@ import Network
 // STRUCTS
 
 
-struct State {
-    var power: Bool
-    var colorMode: Int  //  Modes:  1 RGB, 2 Color Temp, 3 HSV
-    var brightness: Int  // Percentage:  1-100  (0 not valid)
-    var colorTemp: Int  // colorMode 2:  1700-6500 (Yeelight 2)
-    var rgb: Int  // colorMode 1:  1-16777215 (hex: 0xFFFFFF)
-    var hue: Int  // colorMode 3: 0-359
-    var sat: Int  // colorMode 3:  0-100
+public struct State {
+    public var power: Bool
+    public var colorMode: Int  //  Modes:  1 RGB, 2 Color Temp, 3 HSV
+    public var brightness: Int  // Percentage:  1-100  (0 not valid)
+    public var colorTemp: Int  // colorMode 2:  1700-6500 (Yeelight 2)
+    public var rgb: Int  // colorMode 1:  1-16777215 (hex: 0xFFFFFF)
+    public var hue: Int  // colorMode 3: 0-359
+    public var sat: Int  // colorMode 3:  0-100
     
     
     init(_ power: String,
@@ -70,14 +70,14 @@ struct State {
 
 
 
-struct TCPConnection {
-    let ipEndpoint: NWEndpoint.Host
-    let portEndpoint: NWEndpoint.Port
+public struct TCPConnection {
+    public let ipEndpoint: NWEndpoint.Host
+    public let portEndpoint: NWEndpoint.Port
     
-    let conn: NWConnection
-    var status: String
-    let dispatchQueue: DispatchQueue
-    let dispatchGroup: DispatchGroup // Might not use this
+    public let conn: NWConnection
+    public var status: String
+    private let dispatchQueue: DispatchQueue
+    private let dispatchGroup: DispatchGroup // Might not use this
     
     
     init(_ ip: String, _ port: String) throws {
@@ -97,12 +97,12 @@ struct TCPConnection {
 
 
 
-struct Info {
-    let id: String
-    let ip: String
-    var name: String
-    let model: String // Might be useful for lights with limited abilities
-    let support: String // Might be useful for lights with limited abilities
+public struct Info {
+    public let id: String
+    public let ip: String
+    public var name: String
+    public let model: String // Might be useful for lights with limited abilities
+    public let support: String // Might be useful for lights with limited abilities
     
     init(_ id: String, _ ip: String, _ name: String, _ model: String, _ support: String) {
         self.id = id
@@ -121,13 +121,13 @@ struct Info {
 
 public class Light {
     
-    var state: State
-    var tcp: TCPConnection
-    var info: Info
-    var requestTicket: Int = 0
-    var receiverLoop: Bool = true
+    public var state: State
+    public var tcp: TCPConnection
+    public var info: Info
+    public var requestTicket: Int = 0
+    private var receiverLoop: Bool = true
     
-    enum methodEnum {
+    public enum methodEnum {
         case set_ct_abx
         case set_rgb
         case set_hsv
@@ -138,7 +138,7 @@ public class Light {
         case adjust_bright
         
         // conversion to string
-        var string: String {
+        public var string: String {
             switch self {
             case .set_ct_abx:
                 return "set_ct_abx"
@@ -202,11 +202,7 @@ public class Light {
         
         
         // A constant receiver
-        while self.receiverLoop == true {
-            self.tcp.dispatchQueue.sync {
-                self.receive()
-            }
-        }
+        self.receiveAndUpdateState()
         
         
     } // Light.init()
@@ -215,12 +211,12 @@ public class Light {
     deinit {
         self.receiverLoop = false
         self.tcp.conn.cancel()
-        sleep(1) // gives time for everything to close up
+        // sleep(1) Should I give the receive function time to throw error and for the queue to deinitialize?
     } // Light.deinit()
     
     
     // update the state of the light
-    fileprivate func updateState(_ key: String, _ value: Any) throws {
+    private func updateState(_ key: String, _ value: Any) throws {
         switch key {
         case "power":
             guard let power = value as? String else {
@@ -283,7 +279,7 @@ public class Light {
     
     
     // decode response received from light and handle them
-    fileprivate func jsonDecodeAndHandle(_ data: Data?) throws {
+    private func jsonDecodeAndHandle(_ data: Data?) throws {
         /*
          JSON RESPONSES
          
@@ -339,7 +335,7 @@ public class Light {
         // errors
         } else if let error = topLevel["error"] as? [String:Any] {
             guard
-                let errorCode: String = error["code"] as? String,
+                let errorCode: Int = error["code"] as? Int,
                 let errorMessage: String = error["message"] as? String
                 else {
                     // if can't unpack error object
@@ -357,6 +353,7 @@ public class Light {
             for (key, value) in changedState {
                 // switch function for updating state
                 try self.updateState(key, value)
+                print("\(self.info.id) updating '\(key)' to '\(value)'")
             }
             
         } else {
@@ -367,7 +364,7 @@ public class Light {
     
     
     // encode commands to required format for light
-    fileprivate func jsonEncoder(_ reqID: Int, _ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws -> Data {
+    private func jsonEncoder(_ reqID: Int, _ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws -> Data {
         /*
          JSON COMMANDS
          {"id":1,"method":"set_default","params":[]}
@@ -393,9 +390,9 @@ public class Light {
         }
         
         let template: String = """
-        {"id":\(reqID), "method":\(method.string), "params":\(parameters)}\r\n
+        {"id":\(reqID), "method":"\(method.string)", "params":\(parameters)}\r\n
         """
-        
+        print(template)  // FOR FUTURE DEBUGGING PURPOSES
         guard let request: Data = template.data(using: .utf8) else {
             throw RequestError.stringToData
         }
@@ -404,28 +401,37 @@ public class Light {
     }  // Light.jsonEncoder()
     
     
-    // this is called in the init function in a loop
-    fileprivate func receive() {
+    // handles the receiving from tcp conn with light
+    private func receiveAndUpdateState() -> Void {
         self.tcp.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, NWError) in
             // Data?, NWConnection.ContentContext?, Bool, NWError?
             if NWError != nil {
-                print(NWError as Any)
-                return
+                print("\(self.info.id) receive error on ip \(self.info.ip):  \(NWError as Any)")
+                
+                // Should I have a fix to reinstate the loop in the future?
+                self.receiverLoop = false
+                
+            } else {
+                do {
+                    // receives tcp messages and handles them
+                    try self.jsonDecodeAndHandle(data)
+                }
+                catch let error {
+                    print(error as Any)
+                }
             }
             
-            do {
-                // receives tcp messages and handles them
-                try self.jsonDecodeAndHandle(data)
+            // recurse
+            if self.receiverLoop == true {
+                self.receiveAndUpdateState()
             }
-            catch let error {
-                print(error as Any)
-            }
-        } // conn.receive
+            
+        } // conn.receive closure
     } // Light.receiveAndUpdateState()
     
     
     // Send a command to the light
-    func communicate(method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws {
+    public func communicate(method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws {
         // takes in a command
         // randomly generate an ID for that message
         // append string command to ID

@@ -24,6 +24,7 @@ for (key, value) in controller.lights {
     print("\(key): ip:\(value.info.ip)")
 }
 
+
 if controller.lights["0x0000000007e71ffd"] != nil {
     print("has light")
 } else {
@@ -39,15 +40,20 @@ while runProgram == true {
     switch input {
     case "on":
         do {
-            try controller.lights["0x0000000007e71ffd"]?.communicate(method: Light.methodEnum.set_power, "on", "smooth", 100)
+            try controller.lights["0x0000000007e71ffd"]?.communicate(method: Light.methodEnum.set_power, "on", "sudden", 0)
         }
         catch let error {
             print(error)
         }
         
-    case "all off":
-        print("Off")
-        // turn off all statements
+    case "off":
+        do {
+            try controller.lights["0x0000000007e71ffd"]?.communicate(method: Light.methodEnum.set_power, "off", "sudden", 0)
+        }
+        catch let error {
+            print(error)
+        }
+        
     case "exit":
         for (key, _) in controller.lights {
             controller.lights[key]?.tcp.conn.cancel()

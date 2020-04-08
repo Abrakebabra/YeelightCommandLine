@@ -125,7 +125,8 @@ public class Light {
     public var tcp: TCPConnection
     public var info: Info
     public var requestTicket: Int = 0
-    private var receiverLoop: Bool = true
+    public var receiverLoop: Bool = true // make this private later
+    
     
     public enum methodEnum {
         case set_ct_abx
@@ -401,24 +402,57 @@ public class Light {
     }  // Light.jsonEncoder()
     
     
+    // decides on what to do with network errors
+    private func receiveErrorHandler(_ error: NWError?, _ earlyReturn:
+        (Bool) -> Void) {
+        
+        if error == NWError.posix(POSIXErrorCode.ECANCELED) {
+            
+            // if ECANCELED received when not cancelling connection
+            // I want to find out if this ever happens for now
+            // don't stop receiving
+            if self.receiverLoop == true {
+                print("Unplanned POSIXErrorCode.ECANCELED")
+                print("\(self.info.id) receive error on ip \(self.info.ip):  \(error as Any)")
+                // continue without stopping to see if any other issues arise
+                earlyReturn(false)
+                
+            // If the receiver loop is false, ECANCELED is planned
+            // stop receiving
+            } else {
+                self.receiverLoop = false
+                earlyReturn(true)
+            }
+            
+        // Print any other errors that arise and don't stop receiving
+        } else {
+            print("\(self.info.id) receive error on ip \(self.info.ip):  \(error as Any)")
+            earlyReturn(false)
+        }
+    }
+    
+    
     // handles the receiving from tcp conn with light
     private func receiveAndUpdateState() -> Void {
-        self.tcp.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, NWError) in
+        self.tcp.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, error) in
             // Data?, NWConnection.ContentContext?, Bool, NWError?
-            if NWError != nil {
-                print("\(self.info.id) receive error on ip \(self.info.ip):  \(NWError as Any)")
-                
-                // Should I have a fix to reinstate the loop in the future?
-                self.receiverLoop = false
-                
-            } else {
+            
+            if error == nil {
                 do {
                     // receives tcp messages and handles them
                     try self.jsonDecodeAndHandle(data)
                 }
-                catch let error {
-                    print(error as Any)
+                catch let handlingError {
+                    print(handlingError)
                 }
+                
+            } else {
+                self.receiveErrorHandler(error, { (earlyReturn) in
+                    if earlyReturn == true {
+                        return
+                    }
+                })
+                
             }
             
             // recurse

@@ -25,8 +25,16 @@ import Network
 
 
 public class Controller {
+    // aliases easier to read
+    private typealias Property = String
+    private typealias Value = String
+    
+    public typealias Alias = String
+    public typealias ID = String
+    
     // Stores all discovered lights as [idSerial : Data]
     public var lights: [String : Light] = [:]
+    public var alias: [Alias : ID] = [:]
     
     // search addr, port
     private static let multicastHost: NWEndpoint.Host = "239.255.255.250"
@@ -39,9 +47,7 @@ public class Controller {
     private let udpQueue = DispatchQueue(label: "udpQueue")
     let procQueue = DispatchQueue(label: "Process Queue", attributes: .concurrent)
     
-    // aliases easier to read
-    typealias Property = String
-    typealias Value = String
+    
     
     
     
@@ -164,9 +170,9 @@ public class Controller {
                 
                 udpNewConn.start(queue: self.udpQueue)
                 
-                udpNewConn.receiveMessage { (data, _, _, NWError) in
-                    if NWError != nil {
-                        print(NWError as Any)
+                udpNewConn.receiveMessage { (data, _, _, error) in
+                    if error != nil {
+                        print(error as Any)
                     }
                     
                     if let data = data {
@@ -231,9 +237,9 @@ public class Controller {
         
         // Can probably go to the class variables
         // Setup procedure to do when search message is sent
-        let sendComplete = NWConnection.SendCompletion.contentProcessed { (NWError) in
-            if NWError != nil {
-                print(NWError as Any)
+        let sendComplete = NWConnection.SendCompletion.contentProcessed { (error) in
+            if error != nil {
+                print(error as Any)
                 return
             }
         } // sendComplete

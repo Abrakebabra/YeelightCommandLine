@@ -11,25 +11,18 @@ import Foundation
 var runProgram = true
 let controller = Controller()
 
-let testQueue = DispatchQueue(label: "Test")
 
-testQueue.async {
-    controller.discover()
-}
+controller.discover()
 
 
+/*
 sleep(2)
 
 for (key, value) in controller.lights {
     print("\(key): ip:\(value.info.ip)")
 }
+*/
 
-
-if controller.lights["0x0000000007e71ffd"] != nil {
-    print("has light")
-} else {
-    print("light not found")
-}
 
 
 while runProgram == true {
@@ -74,9 +67,11 @@ while runProgram == true {
         }
     case "exit":
         for (key, _) in controller.lights {
+            controller.lights[key]?.receiverLoop = false
             controller.lights[key]?.tcp.conn.cancel()
         }
-        sleep(2)
+        print("Exiting...")
+        sleep(1)
         runProgram = false
         
     default:

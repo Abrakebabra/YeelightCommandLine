@@ -10,9 +10,10 @@ import Foundation
 import Network
 
 
+
 // STRUCTS
 
-
+// The current state of the light's properties
 public struct State {
     public var power: Bool
     public var colorMode: Int  //  Modes:  1 RGB, 2 Color Temp, 3 HSV
@@ -70,6 +71,7 @@ public struct State {
 
 
 
+// All things related to the tcp connection between program and light
 public struct TCPConnection {
     public let ipEndpoint: NWEndpoint.Host
     public let portEndpoint: NWEndpoint.Port
@@ -77,7 +79,6 @@ public struct TCPConnection {
     public let conn: NWConnection
     public var status: String
     private let dispatchQueue: DispatchQueue
-    private let dispatchGroup: DispatchGroup // Might not use this
     
     
     init(_ ip: String, _ port: String) throws {
@@ -89,7 +90,6 @@ public struct TCPConnection {
         self.conn = NWConnection.init(host: self.ipEndpoint, port: self.portEndpoint, using: .tcp)
         self.status = "unknown"
         self.dispatchQueue = DispatchQueue(label: "tcpConn Queue", attributes: .concurrent)
-        self.dispatchGroup = DispatchGroup()
         
         self.conn.start(queue: self.dispatchQueue)
     }
@@ -97,6 +97,7 @@ public struct TCPConnection {
 
 
 
+// Identifying and useful information about light
 public struct Info {
     public let id: String
     public let ip: String
@@ -115,6 +116,7 @@ public struct Info {
 
 
 
+// A rigid structure to ensure that all methods and parameters to be sent to the light as a command meet the light's rules to eliminate typos.
 public struct Method {
     
     public enum Effect {
@@ -162,6 +164,10 @@ public struct Method {
     
     //"effect" support two values: "sudden" and "smooth". If effect is "sudden", then the color temperature will be changed directly to target value, under this case, the third parameter "duration" is ignored. If effect is "smooth", then the color temperature will be changed to target value in a gradual fashion, under this case, the total time of gradual change is specified in third parameter "duration".
     //"duration" specifies the total time of the gradual changing. The unit is milliseconds. The minimum support duration is 30 milliseconds.
+    
+    
+    // no get_prop method
+    
     public struct set_ct_abx {
         public let method: String = "set_ct_abx"
         public let p1_ct_value: Int
@@ -169,10 +175,8 @@ public struct Method {
         public let p3_duration: Int
         
         init(_ color_temp: Int, _ effect: Effect, _ duration: Int) throws {
-            
             try Method().valueInRange("color_temp", color_temp, 1700, 6500)
             try Method().valueInRange("duration", duration, 30)
-            
             self.p1_ct_value = color_temp
             self.p2_effect = effect.string()
             self.p3_duration = duration
@@ -186,13 +190,12 @@ public struct Method {
         public let p3_duration: Int
         
         init(_ rgb_value: Int, _ effect: Effect, _ duration: Int) throws {
-            
             try Method().valueInRange("rgb_value", rgb_value, 1, 16777215)
             try Method().valueInRange("duration", duration, 30)
-            
             self.p1_rgb_value = rgb_value
             self.p2_effect = effect.string()
             self.p3_duration = duration
+        }
     }
     
     public struct set_hsv {
@@ -206,7 +209,6 @@ public struct Method {
             try Method().valueInRange("hue_value", hue_value, 0, 359)
             try Method().valueInRange("sat_value", sat_value, 0, 100)
             try Method().valueInRange("duration", duration, 30)
-            
             self.p1_hue_value = hue_value
             self.p2_sat_value = sat_value
             self.p3_effect = effect.string()
@@ -221,10 +223,8 @@ public struct Method {
         public let p3_duration: Int
         
         init(_ bright_value: Int, _ effect: Effect, _ duration: Int) throws {
-            
             try Method().valueInRange("bright_value", bright_value, 1, 100)
             try Method().valueInRange("duration", duration, 30)
-            
             self.p1_bright_value = bright_value
             self.p2_effect = effect.string()
             self.p3_duration = duration
@@ -240,26 +240,114 @@ public struct Method {
         
         init(_ power: PowerState, _ effect: Effect, _ duration: Int) throws {
             try Method().valueInRange("duration", duration, 30)
-            
             self.p1_power = power.string()
             self.p2_effect = effect.string()
             self.p3_duration = duration
         }
+    }
+    
+    // no toggle method
+    // no set_default method
+    
+    public struct start_cf {
         
     }
     
-    public struct set_scene {
-        public let method: String = "set_scene"
-        // how can I re-use the above code already to accommodate this
+    public struct stop_cf {
+        public let method: String = "stop_cf"
+        public let params: [Any] = []
+        
+        init(_ takesNoParametersLeaveEmpty: [Any]? = nil) {
+            // Takes an empty array.
+        }
     }
+    
+    
+    
+    public struct set_scene {
+        // leaving out color flow because it doesn't benefit from having an additional method through set_scene whereas rgb, hsv and ct can adjust brightness in a single command rather than separately.
+        // Might review color flow in the future (10 April 2020).
+        
+        public struct rgb_bright {
+            public let method: String = "set_scene"
+            public let p1_method: String = "color"
+            public let p2_rgb: Int
+            public let p3_bright: Int
+            
+            init(_ rgb_value: Int, _ bright_value: Int) throws {
+                try Method().valueInRange("rgb_value", rgb_value, 1, 16777215)
+                try Method().valueInRange("bright_value", bright_value, 1, 100)
+                self.p2_rgb = rgb_value
+                self.p3_bright = bright_value
+            }
+        }
+        
+        public struct hsv_bright {
+            public let method: String = "set_scene"
+            public let p1_method: String = "hsv"
+            public let p2_hue: Int
+            public let p3_sat: Int
+            public let p4_bright: Int
+            
+            init(_ hue_value: Int, _ sat_value: Int, _ bright_value: Int) throws {
+                try Method().valueInRange("hue_value", hue_value, 0, 359)
+                try Method().valueInRange("sat_value", sat_value, 0, 100)
+                try Method().valueInRange("bright_value", bright_value, 1, 100)
+                self.p2_hue = hue_value
+                self.p3_sat = sat_value
+                self.p4_bright = bright_value
+            }
+        }
+        
+        public struct color_temp_bright {
+            public let method: String = "set_scene"
+            public let p1_method: String = "ct"
+            public let p2_ct: Int
+            public let p3_bright: Int
+            
+            init(_ color_temp: Int, _ bright_value: Int) throws {
+                try Method().valueInRange("color_temp", color_temp, 1700, 6500)
+                try Method().valueInRange("bright_value", bright_value, 1, 100)
+                self.p2_ct = color_temp
+                self.p3_bright = bright_value
+            }
+        }
+    }
+    
+    // no cron_add method
+    // no cron_get method
+    // no cron_del method
+    // no set_adjust method
+    
+    public struct set_music {
+        
+        
+    }
+    
     
     public struct set_name {
         public let method: String = "set_name"
+        public let p1_name: String
+        
+        init(_ name: String) {
+            self.p1_name = name
+        }
     }
     
+    // no bg_set_xxx / bg_toggle method
+    // no dev_toggle method
+    
+    // Do I still want this?
     public struct adjust_bright {
         public let method: String = "adjust_bright"
     }
+    
+    // no adjust_ct method
+    // no adjust_color method
+    // no bg_adjust_xx method
+    
+    
+    
     
 } // struct Method
 

@@ -146,55 +146,119 @@ public struct Method {
     }
     
     
+    private func valueInRange(_ valueName: String, _ value: Int, _ minInclusive: Int, _ maxInclusive: Int? = nil) throws -> Void {
+        
+        guard value >= minInclusive else {
+            throw MethodError.valueBeyondMin(valueName)
+        }
+        
+        if maxInclusive != nil {
+            guard value <= maxInclusive! else {
+                throw MethodError.valueBeyondMax(valueName)
+            }
+        }
+    } // Method.valueBoundCheck()
+    
+    
     //"effect" support two values: "sudden" and "smooth". If effect is "sudden", then the color temperature will be changed directly to target value, under this case, the third parameter "duration" is ignored. If effect is "smooth", then the color temperature will be changed to target value in a gradual fashion, under this case, the total time of gradual change is specified in third parameter "duration".
     //"duration" specifies the total time of the gradual changing. The unit is milliseconds. The minimum support duration is 30 milliseconds.
     public struct set_ct_abx {
-        public let methodString: String = "set_ct_abx"
-        public let p1_ct_val: Int
+        public let method: String = "set_ct_abx"
+        public let p1_ct_value: Int
         public let p2_effect: String
         public let p3_duration: Int
         
-        init(_ color_temp: Int, effect: Effect, duration: Int) throws {
-            guard color_temp >= 1700 || color_temp <= 6500 else {
-                throw MethodError.ctBeyondRange
-            }
+        init(_ color_temp: Int, _ effect: Effect, _ duration: Int) throws {
             
-            guard duration >= 30 else {
-                throw MethodError.durationBeyondRange
-            }
+            try Method().valueInRange("color_temp", color_temp, 1700, 6500)
+            try Method().valueInRange("duration", duration, 30)
             
-            self.p1_ct_val = color_temp
+            self.p1_ct_value = color_temp
             self.p2_effect = effect.string()
             self.p3_duration = duration
         }
     }
     
     public struct set_rgb {
-        let methodString = "set_rgb"
+        public let method = "set_rgb"
+        public let p1_rgb_value: Int
+        public let p2_effect: String
+        public let p3_duration: Int
+        
+        init(_ rgb_value: Int, _ effect: Effect, _ duration: Int) throws {
+            
+            try Method().valueInRange("rgb_value", rgb_value, 1, 16777215)
+            try Method().valueInRange("duration", duration, 30)
+            
+            self.p1_rgb_value = rgb_value
+            self.p2_effect = effect.string()
+            self.p3_duration = duration
     }
     
     public struct set_hsv {
-        let methodString: String = "set_hsv"
+        public let method: String = "set_hsv"
+        public let p1_hue_value: Int
+        public let p2_sat_value: Int
+        public let p3_effect: String
+        public let p4_duration: Int
+        
+        init(_ hue_value: Int, sat_value: Int, _ effect: Effect, _ duration: Int) throws {
+            try Method().valueInRange("hue_value", hue_value, 0, 359)
+            try Method().valueInRange("sat_value", sat_value, 0, 100)
+            try Method().valueInRange("duration", duration, 30)
+            
+            self.p1_hue_value = hue_value
+            self.p2_sat_value = sat_value
+            self.p3_effect = effect.string()
+            self.p4_duration = duration
+        }
     }
     
     public struct set_bright {
-        let methodString: String = "set_bright"
+        public let method: String = "set_bright"
+        public let p1_bright_value: Int
+        public let p2_effect: String
+        public let p3_duration: Int
+        
+        init(_ bright_value: Int, _ effect: Effect, _ duration: Int) throws {
+            
+            try Method().valueInRange("bright_value", bright_value, 1, 100)
+            try Method().valueInRange("duration", duration, 30)
+            
+            self.p1_bright_value = bright_value
+            self.p2_effect = effect.string()
+            self.p3_duration = duration
+        }
     }
     
     public struct set_power {
-        let methodString: String = "set_power"
+        public let method: String = "set_power"
+        public let p1_power: String
+        public let p2_effect: String
+        public let p3_duration: Int
+        // has optional 4th parameter to switch to mode but excluding
+        
+        init(_ power: PowerState, _ effect: Effect, _ duration: Int) throws {
+            try Method().valueInRange("duration", duration, 30)
+            
+            self.p1_power = power.string()
+            self.p2_effect = effect.string()
+            self.p3_duration = duration
+        }
+        
     }
     
     public struct set_scene {
-        let methodString: String = "set_scene"
+        public let method: String = "set_scene"
+        // how can I re-use the above code already to accommodate this
     }
     
     public struct set_name {
-        let methodString: String = "set_name"
+        public let method: String = "set_name"
     }
     
     public struct adjust_bright {
-        let methodString: String = "adjust_bright"
+        public let method: String = "adjust_bright"
     }
     
 } // struct Method

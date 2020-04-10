@@ -38,9 +38,6 @@ public enum LightStateUpdateError: Error {
 
 
 public enum MethodError: Error {
-    case durationBeyondRange
-    case brightBeyondRange
-    case ctBeyondRange
-    case rgbBeyondRange
-    case hueBeyondRange
+    case valueBeyondMin(String)
+    case valueBeyondMax(String)
 }

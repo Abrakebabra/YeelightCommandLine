@@ -35,6 +35,10 @@ Asked yeelight developer forum.
 https://forum.yeelight.com/t/topic/17006
 
 
+Check accepted ranges on rgb, hue, sat.  Documentation might not be correct.
+
+
+
 Fix:
  - Sort out error names: Only enum cases are printed, not enum name itself.
  - Light should actually be a reference type in case it's ever copied. DONE

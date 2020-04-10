@@ -32,7 +32,8 @@ while runProgram == true {
     switch input {
     case "on":
         do {
-            try controller.lights["0x0000000007e71ffd"]?.communicate(method: Light.methodEnum.set_power, "on", "sudden", 0)
+            let message = try Method.set_power(.on, .sudden).string
+            controller.lights["0x0000000007e71ffd"]?.communicate(message)
         }
         catch let error {
             print(error)
@@ -40,7 +41,8 @@ while runProgram == true {
         
     case "off":
         do {
-            try controller.lights["0x0000000007e71ffd"]?.communicate(method: Light.methodEnum.set_power, "off", "sudden", 0)
+            let message = try Method.set_power(.off, .sudden).string
+            controller.lights["0x0000000007e71ffd"]?.communicate(message)
         }
         catch let error {
             print(error)
@@ -49,7 +51,8 @@ while runProgram == true {
     case "allOn":
         for (_, value) in controller.lights {
             do {
-                try value.communicate(method: Light.methodEnum.set_power, "on", "sudden", 0)
+                let message = try Method.set_power.init(.on, .sudden).string
+                value.communicate(message)
             }
             catch let error {
                 print(error)
@@ -59,7 +62,8 @@ while runProgram == true {
     case "allOff":
         for (_, value) in controller.lights {
             do {
-                try value.communicate(method: Light.methodEnum.set_power, "off", "sudden", 0)
+                let message = try Method.set_power.init(.off, .sudden).string
+                value.communicate(message)
             }
             catch let error {
                 print(error)

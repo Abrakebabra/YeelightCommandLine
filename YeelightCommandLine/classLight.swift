@@ -133,30 +133,50 @@ public struct Method {
         }
     }
     
-    public enum PowerState {
-        case on
-        case off
+    
+    
+    
+    // encode commands to required format for light
+    private func methodParamString(_ method: String, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) -> String {
+        /*
+         JSON COMMANDS
+         {"id":1,"method":"set_default","params":[]}
+         {"id":1,"method":"set_scene", "params": ["hsv", 300, 70, 100]}
+         {"id":1,"method":"get_prop","params":["power", "not_exist", "bright"]}
+         */
         
-        public func string() -> String {
-            switch self {
-            case .on:
-                return "on"
-            case .off:
-                return "off"
-            }
+        // different commands have different value types
+        var parameters: [Any] = []
+        
+        // in order, append parameters to array.
+        if let param1 = param1 {
+            parameters.append(param1)
         }
+        if let param2 = param2 {
+            parameters.append(param2)
+        }
+        if let param3 = param3 {
+            parameters.append(param3)
+        }
+        if let param4 = param4 {
+            parameters.append(param4)
+        }
+        
+        return """
+        "method":"\(method)", "params":\(parameters)
+        """
     }
     
     
-    private func valueInRange(_ valueName: String, _ value: Int, _ minInclusive: Int, _ maxInclusive: Int? = nil) throws -> Void {
+    private func valueInRange(_ valueName: String, _ value: Int, min: Int, max: Int? = nil) throws -> Void {
         
-        guard value >= minInclusive else {
-            throw MethodError.valueBeyondMin(valueName)
+        guard value >= min else {
+            throw MethodError.valueBeyondMin("\(valueName) below minimum inclusive of \(min)")
         }
         
-        if maxInclusive != nil {
-            guard value <= maxInclusive! else {
-                throw MethodError.valueBeyondMax(valueName)
+        if max != nil {
+            guard value <= max! else {
+                throw MethodError.valueBeyondMax("\(valueName) above maximum inclusive of \(max!)")
             }
         }
     } // Method.valueBoundCheck()
@@ -174,14 +194,19 @@ public struct Method {
         public let p2_effect: String
         public let p3_duration: Int
         
-        init(_ color_temp: Int, _ effect: Effect, _ duration: Int) throws {
-            try Method().valueInRange("color_temp", color_temp, 1700, 6500)
-            try Method().valueInRange("duration", duration, 30)
+        init(_ color_temp: Int, _ effect: Effect, _ duration: Int = 30) throws {
+            try Method().valueInRange("color_temp", color_temp, min: 1700, max: 6500)
+            try Method().valueInRange("duration", duration, min: 30)
             self.p1_ct_value = color_temp
             self.p2_effect = effect.string()
             self.p3_duration = duration
         }
+        
+        public var string: String {
+            return Method().methodParamString(self.method, self.p1_ct_value, self.p2_effect, self.p3_duration)
+        }
     }
+    
     
     public struct set_rgb {
         public let method = "set_rgb"
@@ -189,12 +214,16 @@ public struct Method {
         public let p2_effect: String
         public let p3_duration: Int
         
-        init(_ rgb_value: Int, _ effect: Effect, _ duration: Int) throws {
-            try Method().valueInRange("rgb_value", rgb_value, 1, 16777215)
-            try Method().valueInRange("duration", duration, 30)
+        init(_ rgb_value: Int, _ effect: Effect, _ duration: Int = 30) throws {
+            try Method().valueInRange("rgb_value", rgb_value, min: 1, max: 16777215)
+            try Method().valueInRange("duration", duration, min: 30)
             self.p1_rgb_value = rgb_value
             self.p2_effect = effect.string()
             self.p3_duration = duration
+        }
+        
+        public var string: String {
+            return Method().methodParamString(self.method, self.p1_rgb_value, self.p2_effect, self.p3_duration)
         }
     }
     
@@ -205,14 +234,18 @@ public struct Method {
         public let p3_effect: String
         public let p4_duration: Int
         
-        init(_ hue_value: Int, sat_value: Int, _ effect: Effect, _ duration: Int) throws {
-            try Method().valueInRange("hue_value", hue_value, 0, 359)
-            try Method().valueInRange("sat_value", sat_value, 0, 100)
-            try Method().valueInRange("duration", duration, 30)
+        init(_ hue_value: Int, sat_value: Int, _ effect: Effect, _ duration: Int = 30) throws {
+            try Method().valueInRange("hue_value", hue_value, min: 0, max: 359)
+            try Method().valueInRange("sat_value", sat_value, min: 0, max: 100)
+            try Method().valueInRange("duration", duration, min: 30)
             self.p1_hue_value = hue_value
             self.p2_sat_value = sat_value
             self.p3_effect = effect.string()
             self.p4_duration = duration
+        }
+        
+        public var string: String {
+            return Method().methodParamString(self.method, self.p1_hue_value, self.p2_sat_value, self.p3_effect, self.p4_duration)
         }
     }
     
@@ -222,27 +255,51 @@ public struct Method {
         public let p2_effect: String
         public let p3_duration: Int
         
-        init(_ bright_value: Int, _ effect: Effect, _ duration: Int) throws {
-            try Method().valueInRange("bright_value", bright_value, 1, 100)
-            try Method().valueInRange("duration", duration, 30)
+        init(_ bright_value: Int, _ effect: Effect, _ duration: Int = 30) throws {
+            try Method().valueInRange("bright_value", bright_value, min: 1, max: 100)
+            try Method().valueInRange("duration", duration, min: 30)
             self.p1_bright_value = bright_value
             self.p2_effect = effect.string()
             self.p3_duration = duration
         }
+        
+        public var string: String {
+            return Method().methodParamString(self.method, self.p1_bright_value, self.p2_effect, self.p3_duration)
+        }
     }
     
     public struct set_power {
+        
+        public enum PowerState {
+            case on
+            case off
+            
+            public func string() -> String {
+                switch self {
+                case .on:
+                    return "on"
+                case .off:
+                    return "off"
+                }
+            }
+        }
+        
         public let method: String = "set_power"
         public let p1_power: String
         public let p2_effect: String
         public let p3_duration: Int
         // has optional 4th parameter to switch to mode but excluding
         
-        init(_ power: PowerState, _ effect: Effect, _ duration: Int) throws {
-            try Method().valueInRange("duration", duration, 30)
+        
+        init(_ power: PowerState, _ effect: Effect, _ duration: Int = 30) throws {
+            try Method().valueInRange("duration", duration, min: 30)
             self.p1_power = power.string()
             self.p2_effect = effect.string()
             self.p3_duration = duration
+        }
+        
+        public var string: String {
+            return Method().methodParamString(self.method, self.p1_power, self.p2_effect, self.p3_duration)
         }
     }
     
@@ -255,13 +312,14 @@ public struct Method {
     
     public struct stop_cf {
         public let method: String = "stop_cf"
-        public let params: [Any] = []
         
-        init(_ takesNoParametersLeaveEmpty: [Any]? = nil) {
+        init(_ takesNoParametersLeaveEmpty: Any? = nil) {
             // Takes an empty array.
         }
+        public var string: String {
+            return Method().methodParamString(self.method)
+        }
     }
-    
     
     
     public struct set_scene {
@@ -275,10 +333,14 @@ public struct Method {
             public let p3_bright: Int
             
             init(_ rgb_value: Int, _ bright_value: Int) throws {
-                try Method().valueInRange("rgb_value", rgb_value, 1, 16777215)
-                try Method().valueInRange("bright_value", bright_value, 1, 100)
+                try Method().valueInRange("rgb_value", rgb_value, min: 1, max: 16777215)
+                try Method().valueInRange("bright_value", bright_value, min: 1, max: 100)
                 self.p2_rgb = rgb_value
                 self.p3_bright = bright_value
+            }
+            
+            public var string: String {
+                return Method().methodParamString(self.method, self.p1_method, self.p2_rgb, self.p3_bright)
             }
         }
         
@@ -290,26 +352,34 @@ public struct Method {
             public let p4_bright: Int
             
             init(_ hue_value: Int, _ sat_value: Int, _ bright_value: Int) throws {
-                try Method().valueInRange("hue_value", hue_value, 0, 359)
-                try Method().valueInRange("sat_value", sat_value, 0, 100)
-                try Method().valueInRange("bright_value", bright_value, 1, 100)
+                try Method().valueInRange("hue_value", hue_value, min: 0, max: 359)
+                try Method().valueInRange("sat_value", sat_value, min: 0, max: 100)
+                try Method().valueInRange("bright_value", bright_value, min: 1, max: 100)
                 self.p2_hue = hue_value
                 self.p3_sat = sat_value
                 self.p4_bright = bright_value
+            }
+            
+            public var string: String {
+                return Method().methodParamString(self.method, self.p1_method, self.p2_hue, self.p3_sat, self.p4_bright)
             }
         }
         
         public struct color_temp_bright {
             public let method: String = "set_scene"
             public let p1_method: String = "ct"
-            public let p2_ct: Int
+            public let p2_color_temp: Int
             public let p3_bright: Int
             
             init(_ color_temp: Int, _ bright_value: Int) throws {
-                try Method().valueInRange("color_temp", color_temp, 1700, 6500)
-                try Method().valueInRange("bright_value", bright_value, 1, 100)
-                self.p2_ct = color_temp
+                try Method().valueInRange("color_temp", color_temp, min: 1700, max: 6500)
+                try Method().valueInRange("bright_value", bright_value, min: 1, max: 100)
+                self.p2_color_temp = color_temp
                 self.p3_bright = bright_value
+            }
+            
+            public var string: String {
+                return Method().methodParamString(self.method, self.p1_method, self.p2_color_temp, self.p3_bright)
             }
         }
     }
@@ -331,6 +401,10 @@ public struct Method {
         
         init(_ name: String) {
             self.p1_name = name
+        }
+        
+        public var string: String {
+            return Method().methodParamString(self.method, self.p1_name)
         }
     }
     
@@ -568,44 +642,6 @@ public class Light {
     } // Light.jsonDecode()
     
     
-    // encode commands to required format for light
-    private func jsonEncoder(_ reqID: Int, _ method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws -> Data {
-        /*
-         JSON COMMANDS
-         {"id":1,"method":"set_default","params":[]}
-         {"id":1,"method":"set_scene", "params": ["hsv", 300, 70, 100]}
-         {"id":1,"method":"get_prop","params":["power", "not_exist", "bright"]}
-         */
-        
-        // different commands have different value types
-        var parameters: [Any] = []
-        
-        // in order, append parameters to array.
-        if let param1 = param1 {
-            parameters.append(param1)
-        }
-        if let param2 = param2 {
-            parameters.append(param2)
-        }
-        if let param3 = param3 {
-            parameters.append(param3)
-        }
-        if let param4 = param4 {
-            parameters.append(param4)
-        }
-        
-        let template: String = """
-        {"id":\(reqID), "method":"\(method.string)", "params":\(parameters)}\r\n
-        """
-        print(template)  // FOR FUTURE DEBUGGING PURPOSES
-        guard let request: Data = template.data(using: .utf8) else {
-            throw RequestError.stringToData
-        }
-        
-        return request
-    }  // Light.jsonEncoder()
-    
-    
     // decides on what to do with network errors
     private func receiveErrorHandler(_ error: NWError?, _ earlyReturn:
         (Bool) -> Void) {
@@ -669,7 +705,7 @@ public class Light {
     
     
     // Send a command to the light
-    public func communicate(method: methodEnum, _ param1: Any? = nil, _ param2: Any? = nil, _ param3: Any? = nil, _ param4: Any? = nil) throws {
+    public func communicate(_ methodParams: String) {
         // takes in a command
         // randomly generate an ID for that message
         // append string command to ID
@@ -683,8 +719,17 @@ public class Light {
         
         self.requestTicket += 1
         
-        let requestContent: Data = try jsonEncoder(self.requestTicket, method, param1, param2, param3, param4)
+        let id: String = """
+        "id":\(self.requestTicket)
+        """
         
+        let message: String = """
+        {\(id), \(methodParams)}\r\n
+        """
+        
+        print(message)  // FOR FUTURE DEBUGGING PURPOSES
+        
+        let requestContent = message.data(using: .utf8)
         
         let sendCompletion = NWConnection.SendCompletion.contentProcessed { (NWError) in
             if NWError != nil {
@@ -701,5 +746,6 @@ public class Light {
     
     
 } // class Light
+
 
 

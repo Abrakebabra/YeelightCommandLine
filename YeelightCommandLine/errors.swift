@@ -9,20 +9,20 @@
 import Foundation
 
 
-enum DiscoveryError: Error {
+public enum DiscoveryError: Error {
     case tcpInitFailed(String)
     case propertyKey
     case idValue
 }
 
 
-enum RequestError: Error {
+public enum RequestError: Error {
     case stringToData
     case methodNotValid // not yet used
 }
 
 
-enum JSONError: Error {
+public enum JSONError: Error {
     case jsonObject
     case errorObject
     case response(String)
@@ -32,6 +32,15 @@ enum JSONError: Error {
 
 
 // change this or make a new one to reflect the new state updater?
-enum LightStateUpdateError: Error {
+public enum LightStateUpdateError: Error {
     case value(String)
+}
+
+
+public enum MethodError: Error {
+    case durationBeyondRange
+    case brightBeyondRange
+    case ctBeyondRange
+    case rgbBeyondRange
+    case hueBeyondRange
 }

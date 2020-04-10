@@ -115,6 +115,92 @@ public struct Info {
 
 
 
+public struct Method {
+    
+    public enum Effect {
+        case sudden
+        case smooth
+        
+        public func string() -> String {
+            switch self {
+            case .sudden:
+                return "sudden"
+            case .smooth:
+                return "smooth"
+            }
+        }
+    }
+    
+    public enum PowerState {
+        case on
+        case off
+        
+        public func string() -> String {
+            switch self {
+            case .on:
+                return "on"
+            case .off:
+                return "off"
+            }
+        }
+    }
+    
+    
+    //"effect" support two values: "sudden" and "smooth". If effect is "sudden", then the color temperature will be changed directly to target value, under this case, the third parameter "duration" is ignored. If effect is "smooth", then the color temperature will be changed to target value in a gradual fashion, under this case, the total time of gradual change is specified in third parameter "duration".
+    //"duration" specifies the total time of the gradual changing. The unit is milliseconds. The minimum support duration is 30 milliseconds.
+    public struct set_ct_abx {
+        public let methodString: String = "set_ct_abx"
+        public let p1_ct_val: Int
+        public let p2_effect: String
+        public let p3_duration: Int
+        
+        init(_ color_temp: Int, effect: Effect, duration: Int) throws {
+            guard color_temp >= 1700 || color_temp <= 6500 else {
+                throw MethodError.ctBeyondRange
+            }
+            
+            guard duration >= 30 else {
+                throw MethodError.durationBeyondRange
+            }
+            
+            self.p1_ct_val = color_temp
+            self.p2_effect = effect.string()
+            self.p3_duration = duration
+        }
+    }
+    
+    public struct set_rgb {
+        let methodString = "set_rgb"
+    }
+    
+    public struct set_hsv {
+        let methodString: String = "set_hsv"
+    }
+    
+    public struct set_bright {
+        let methodString: String = "set_bright"
+    }
+    
+    public struct set_power {
+        let methodString: String = "set_power"
+    }
+    
+    public struct set_scene {
+        let methodString: String = "set_scene"
+    }
+    
+    public struct set_name {
+        let methodString: String = "set_name"
+    }
+    
+    public struct adjust_bright {
+        let methodString: String = "adjust_bright"
+    }
+    
+} // struct Method
+
+
+
 ////////////////////////////////////////////////////////////////////////////
 
 
@@ -126,40 +212,6 @@ public class Light {
     public var info: Info
     public var requestTicket: Int = 0
     public var receiverLoop: Bool = true // make this private later
-    
-    
-    public enum methodEnum {
-        case set_ct_abx
-        case set_rgb
-        case set_hsv
-        case set_bright
-        case set_power
-        case set_scene
-        case set_name
-        case adjust_bright
-        
-        // conversion to string
-        public var string: String {
-            switch self {
-            case .set_ct_abx:
-                return "set_ct_abx"
-            case .set_rgb:
-                return "set_rgb"
-            case .set_hsv:
-                return "set_hsv"
-            case .set_bright:
-                return "set_bright"
-            case .set_power:
-                return "set_power"
-            case .set_scene:
-                return "set_scene"
-            case .set_name:
-                return "set_name"
-            case .adjust_bright:
-                return "adjust_bright"
-            }
-        } // var String
-    } // methodEnum
     
     
     init(_ id: String, _ ip: String, _ port: String,
@@ -274,7 +326,7 @@ public class Light {
             
         default:
             // don't throw error yet - might have more states that will update than anticipated
-            print("Property key (\(key)) not handled")
+            print("Property key (\(key)) not handled.  Value is \(value)")
         } // switch
     } // Light.updateState()
     

@@ -308,6 +308,100 @@ public struct Method {
     
     public struct start_cf {
         
+        // don't forget to add a check later to ensure that the number of state changes are at least equal to the number of states added
+        public enum numOfStateChanges {
+            case infinite
+            case finite(count: Int)
+            
+            public func int() -> Int {
+                switch self {
+                case .infinite:
+                    return 0
+                case .finite(let count):
+                    return count
+                }
+            }
+        }
+        
+        public enum onCompletion {
+            case returnPrevious
+            case stayCurrent
+            case turnOff
+            
+            public func int() -> Int {
+                switch self {
+                case .returnPrevious:
+                    return 0
+                case .stayCurrent:
+                    return 1
+                case .turnOff:
+                    return 2
+                }
+            }
+        }
+        
+        
+        // creates a tuple for each color state
+        public enum setState {
+            case rgb(value: Int, bright_val: Int, duration: Int)
+            case color_temp(value: Int, bright_val: Int, duration: Int)
+            case wait(duration: Int)
+            
+            // returns [duration, mode, rgb or color_temp val, bright_val]
+            // min duration here is 50ms as opposed to 30 elsewhere
+            public func params() throws -> [Int] {
+                switch self {
+                    
+                case .rgb(let value, let bright_val, let duration):
+                    try Method().valueInRange("rgb_value", value, min: 1, max: 16777215)
+                    try Method().valueInRange("bright_val", bright_val, min: 1, max: 100)
+                    try Method().valueInRange("duration", duration, min: 50)
+                    return [duration, 1, value, bright_val]
+                    
+                case .color_temp(let value, let bright_val, let duration):
+                    try Method().valueInRange("color_temp", value, min: 1700, max: 6500)
+                    try Method().valueInRange("bright_val", bright_val, min: 1, max: 100)
+                    try Method().valueInRange("duration", duration, min: 50)
+                    return [duration, 2, value, bright_val]
+                    
+                case .wait(let duration):
+                    try Method().valueInRange("duration", duration, min: 50)
+                    return [duration, 7, 0, 0]
+                }
+            }
+        }
+        
+        
+        public struct FlowExpressions {
+            public var allExpressions: [Int]
+            
+            init() {
+                self.allExpressions = []
+            }
+            
+            // check what mutating does
+            public mutating func addState(_ expression: setState) throws {
+                try self.allExpressions.append(contentsOf: expression.params())
+                
+            }
+            
+            public func finalOutput() -> String {
+                // output this to a clean string "1, 2, 3, 4, 5" with no square parenthesis
+            }
+        }
+        
+        // {"id":1, "method":"start_cf", "params":[4, 2, "1000,2,2700,100"]}
+        public let method: String = "start_cf"
+        public let p1_count: Int
+        public let p2_action: Int
+        public let p3_flow_expression: // custom type to ensure correct usage?
+        
+        init(_ change_count: numOfStateChanges, _ onCompletion: onCompletion, _ flow_expression: ) {
+            self.p1_count = change_count.int()
+            self.p2_action = onCompletion.int()
+            self.p3_flow_expression =
+        }
+        
     }
     
     public struct stop_cf {

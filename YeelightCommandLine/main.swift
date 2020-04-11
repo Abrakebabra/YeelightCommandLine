@@ -51,7 +51,7 @@ while runProgram == true {
     case "allOn":
         for (_, value) in controller.lights {
             do {
-                let message = try Method.set_power.init(.on, .sudden).string
+                let message = try Method.set_power.init(.on, .sudden, 30).string
                 value.communicate(message)
             }
             catch let error {
@@ -62,7 +62,7 @@ while runProgram == true {
     case "allOff":
         for (_, value) in controller.lights {
             do {
-                let message = try Method.set_power.init(.off, .sudden).string
+                let message = try Method.set_power.init(.off, .sudden, 30).string
                 value.communicate(message)
             }
             catch let error {

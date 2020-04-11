@@ -40,6 +40,5 @@ public enum LightStateUpdateError: Error {
 public enum MethodError: Error {
     case valueBeyondMin(String)
     case valueBeyondMax(String)
-    
     case fewerChangesThanStatesEntered
 }

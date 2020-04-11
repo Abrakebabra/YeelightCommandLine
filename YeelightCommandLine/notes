@@ -39,6 +39,14 @@ Check accepted ranges on rgb, hue, sat.  Documentation might not be correct.
 
 
 
+Probably use a DispatchGroup for DiscoveryWait on number of lights?
+
+
+If light is flowing, needs to send a command to stop it or it won't change by itself.
+
+
+
+
 Fix:
  - Sort out error names: Only enum cases are printed, not enum name itself.
  - Light should actually be a reference type in case it's ever copied. DONE

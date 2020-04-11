@@ -9,9 +9,10 @@
 import Foundation
 
 
+/// Enumerators for Method structs
 public enum Enums {
     
-    // general
+    /// gradual or instant change
     public enum Effect {
         case sudden
         case smooth
@@ -26,7 +27,7 @@ public enum Enums {
         }
     }
     
-    // set_power
+    /// power on or off
     public enum PowerState {
         case on
         case off
@@ -43,6 +44,7 @@ public enum Enums {
     
     // start_cf
     // don't forget to add a check later to ensure that the number of state changes are at least equal to the number of states added
+    /// How many state changes
     public enum numOfStateChanges {
         case infinite
         case finite(count: Int)
@@ -105,12 +107,9 @@ public enum Enums {
             }
         }
     }
-    
-    
-    
-    
-    
 }
+
+
 
 
 // A rigid structure to ensure that all methods and parameters to be sent to the light as a command meet the light's rules to eliminate typos.
@@ -285,7 +284,7 @@ public struct Method {
                 
             }
             
-            fileprivate func finalOutput() -> String {
+            fileprivate func output() -> (Int, String) {
                 // output this to a clean string "1, 2, 3, 4, 5" with no square parenthesis
                 
                 var tupleString: String = ""
@@ -299,7 +298,9 @@ public struct Method {
                     }
                 }
                 
-                return tupleString
+                // Each state has 4 values.  Returns number of states.
+                // Enums.setState will only pass through 4 digits each time
+                return (self.allExpressions.count / 4, tupleString)
             }
         }
         
@@ -311,10 +312,17 @@ public struct Method {
         public let p2_action: Int
         public let p3_flow_expression: String // custom type to ensure correct usage?
         
-        init(_ change_count: Enums.numOfStateChanges, _ onCompletion: Enums.onCompletion, _ flow_expression: Method.set_colorFlow.CreateExpressions) {
+        init(_ change_count: Enums.numOfStateChanges, _ onCompletion: Enums.onCompletion, _ flow_expression: Method.set_colorFlow.CreateExpressions) throws {
+            
+            let expressions: (Int, String) = flow_expression.output()
+            let expressionCount: Int = expressions.0
             self.p1_count = change_count.int()
             self.p2_action = onCompletion.int()
-            self.p3_flow_expression = flow_expression.finalOutput()
+            self.p3_flow_expression = expressions.1
+            
+            guard self.p1_count >= expressionCount else {
+                throw MethodError.fewerChangesThanStatesEntered
+            }
         }
         
         public func string() -> String {

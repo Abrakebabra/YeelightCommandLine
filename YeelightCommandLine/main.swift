@@ -12,7 +12,7 @@ var runProgram = true
 let controller = Controller()
 
 
-controller.discover()
+controller.discover(wait: .timeoutSeconds(5))
 
 
 /*
@@ -55,7 +55,7 @@ while runProgram == true {
             try flowExpressions.addState(.rgb(value: 160000, bright_val: 100, duration: 4000))
             try flowExpressions.addState(.rgb(value: 300000, bright_val: 100, duration: 3000))
             
-            let message = Method.set_colorFlow(.finite(count: 8), .returnPrevious, flowExpressions).string()
+            let message = try Method.set_colorFlow(.finite(count: 8), .returnPrevious, flowExpressions).string()
             controller.lights["0x0000000007e71ffd"]?.communicate(message)
         }
         catch let error {

@@ -48,7 +48,19 @@ public class Controller {
     let procQueue = DispatchQueue(label: "Process Queue", attributes: .concurrent)
     
     
-    
+    public enum DiscoveryWait {
+        case lightCount(Int)
+        case timeoutSeconds(Int)
+        
+        private func integer() -> Int {
+            switch self {
+            case .lightCount(let count):
+                return count
+            case .timeoutSeconds(let seconds):
+                return seconds
+            }
+        }
+    }
     
     
     // parse string data to store light data
@@ -212,23 +224,47 @@ public class Controller {
     } // Controller.getLocalPort()
     
     
+    // =====================================================================
+    // FUNCTIONS ===========================================================
+    // =====================================================================
     
-    ///////////////////////////////////////////////////////////////
     
-    
-    
-    public func discover() {
+    public func discover(wait: DiscoveryWait) {
+        
         
         // clear all existing lights
         self.lights.removeAll(keepingCapacity: true)
         
+        // DispatchGroup
+        let dispatchGroup = DispatchGroup()
+        
         // Setup UDP connection
         let udpSearchConn = NWConnection(host: Controller.multicastHost, port: Controller.multicastPort, using: .udp)
         
+        var udpState: String = "unknown"
+        
+        udpSearchConn.stateUpdateHandler = { (newState) in
+            switch(newState) {
+            case .ready:
+                udpState = "ready"
+                dispatchGroup.leave()
+            case .failed(let error):
+                print("UDP connection returned error: \(error)")
+            case .cancelled:
+                udpState = "cancelled"
+            default:
+                udpState = "unknown"
+            }
+        }
+            
+        dispatchGroup.enter()
+            
+            
         // Start the connection
         udpSearchConn.start(queue: self.udpQueue)
         
-        sleep(1)
+        dispatchGroup.wait()
+            
         // Get local port.  If returns nil, notify then end discovery
         guard let localPort = self.getLocalPort(fromConnection: udpSearchConn) else {
             print("Couldn't find local port")

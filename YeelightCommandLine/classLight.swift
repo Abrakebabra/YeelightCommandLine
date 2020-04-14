@@ -10,8 +10,22 @@ import Foundation
 import Network
 
 
+// ==========================================================================
+// CONTENTS =================================================================
+// ==========================================================================
 
-// STRUCTS
+// public struct State
+// public struct TCPConnection
+// public struct Info
+// public class  Light
+    // public func communicate
+
+
+// ==========================================================================
+// SUPPORTING STRUCTS AND CLASSES ===========================================
+// ==========================================================================
+
+
 
 // The current state of the light's properties
 public struct State {
@@ -23,6 +37,10 @@ public struct State {
     public var hue: Int  // colorMode 3: 0-359
     public var sat: Int  // colorMode 3:  0-100
     
+    public var flowing: Bool?  // flowing or not
+    public var flowParams: [Int]?  // tuple (4 integers) per state
+    public var musicMode: Bool?  // music mode on or off
+    public var delayCountDownMins: Int?  // minutes until power off
     
     init(_ power: String,
          _ colorMode: String, _ brightness: String,
@@ -72,7 +90,7 @@ public struct State {
 
 
 // All things related to the tcp connection between program and light
-public struct TCPConnection {
+public class TCPConnection {
     public let ipEndpoint: NWEndpoint.Host
     public let portEndpoint: NWEndpoint.Port
     
@@ -89,7 +107,7 @@ public struct TCPConnection {
         self.portEndpoint = portEndpoint
         self.conn = NWConnection.init(host: self.ipEndpoint, port: self.portEndpoint, using: .tcp)
         self.status = "unknown"
-        self.dispatchQueue = DispatchQueue(label: "tcpConn Queue", attributes: .concurrent)
+        self.dispatchQueue = DispatchQueue(label: "tcpConn Queue")
         
         self.conn.start(queue: self.dispatchQueue)
     }
@@ -116,7 +134,12 @@ public struct Info {
 
 
 
-////////////////////////////////////////////////////////////////////////////
+
+
+
+// ==========================================================================
+// CLASS LIGHT ==============================================================
+// ==========================================================================
 
 
 
@@ -153,16 +176,17 @@ public class Light {
             case .ready:
                 self.tcp.status = "ready"
                 print("\(self.info.ip), \(self.info.id) ready")
-            case .waiting:
+            case .waiting(let error):
                 self.tcp.status = "waiting"
-                print("\(self.info.ip), \(self.info.id) waiting")
-            case .failed:
+                print("\(self.info.ip), \(self.info.id) waiting with error: \(error)")
+            case .failed(let error):
                 self.tcp.status = "failed"
-                print("\(self.info.ip), \(self.info.id) tcp connection failed")
+                print("\(self.info.ip), \(self.info.id) tcp connection failed with error: \(error)")
             case .cancelled:
                 self.tcp.status = "cancelled"
                 print("\(self.info.ip), \(self.info.id) tcp connection cancelled")
-            default:
+            @unknown default:
+                // recommended in case of future changes
                 self.tcp.status = "unknown"
                 print("Unknown status for \(self.info.ip), \(self.info.id)")
             } // switch
@@ -190,11 +214,8 @@ public class Light {
             guard let power = value as? String else {
                 throw LightStateUpdateError.value("power to String failed")
             }
-            if power == "on" {
-                self.state.power = true
-            } else {
-                self.state.power = false
-            }
+            
+            self.state.power = power == "on" ? true : false
             
         case "bright":
             guard let brightness = value as? Int else {
@@ -226,7 +247,6 @@ public class Light {
             }
             self.state.hue = hue
             
-            
         case "sat":
             guard let sat = value as? Int else {
                 throw LightStateUpdateError.value("sat to Int failed")
@@ -238,6 +258,30 @@ public class Light {
                 throw LightStateUpdateError.value("name to String failed")
             }
             self.info.name = name
+            
+        case "flowing":
+            guard let flow = value as? Int else {
+                throw LightStateUpdateError.value("flow state to Bool failed")
+            }
+            self.state.flowing = flow == 1 ? true : false
+            
+        case "flow_params":
+            guard let params = value as? [Int] else {
+                throw LightStateUpdateError.value("flow params to Array failed")
+            }
+            self.state.flowParams = params
+            
+        case "music_on":
+            guard let musicMode = value as? Int else {
+                throw LightStateUpdateError.value("music mode state to Bool failed")
+            }
+            self.state.musicMode = musicMode == 1 ? true : false
+            
+        case "delayoff":
+            guard let mins = value as? Int else {
+                throw LightStateUpdateError.value("delay countdown to Int failed")
+            }
+            self.state.delayCountDownMins = mins
             
         default:
             // don't throw error yet - might have more states that will update than anticipated
@@ -342,7 +386,7 @@ public class Light {
             // don't stop receiving
             if self.receiverLoop == true {
                 print("Unplanned POSIXErrorCode.ECANCELED")
-                print("\(self.info.id) receive error on ip \(self.info.ip):  \(error as Any)")
+                print("\(self.info.id) receive error on ip \(self.info.ip):  \(error.debugDescription)")
                 // continue without stopping to see if any other issues arise
                 earlyReturn(false)
                 
@@ -355,7 +399,7 @@ public class Light {
             
         // Print any other errors that arise and don't stop receiving
         } else {
-            print("\(self.info.id) receive error on ip \(self.info.ip):  \(error as Any)")
+            print("\(self.info.id) receive error on ip \(self.info.ip):  \(error.debugDescription)")
             earlyReturn(false)
         }
     }
@@ -422,7 +466,7 @@ public class Light {
         
         let sendCompletion = NWConnection.SendCompletion.contentProcessed { (NWError) in
             if NWError != nil {
-                print("TCP error in message sent:\n  ID: \(self.info.id)\n  IP: \(self.info.ip)\n  Error: \(NWError as Any)")
+                print("TCP error in message sent:\n  ID: \(self.info.id)\n  IP: \(self.info.ip)\n  Error: \(NWError.debugDescription)")
             }
         } // let sendCompletion
         

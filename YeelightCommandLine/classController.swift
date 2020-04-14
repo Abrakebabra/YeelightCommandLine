@@ -22,6 +22,230 @@ import Network
      - changeBright
  */
 
+// ==========================================================================
+// CONTENTS =================================================================
+// ==========================================================================
+
+// enum DiscoveryWait
+// class UDPConnection
+// class Controller
+
+
+public enum DiscoveryWait {
+    case lightCount(Int)
+    case timeoutSeconds(Int)
+    
+    private func integer() -> Int {
+        switch self {
+        case .lightCount(let count):
+            return count
+        case .timeoutSeconds(let seconds):
+            return seconds
+        }
+    }
+}
+
+
+
+// ==========================================================================
+// CLASS UDPCONNECTION ======================================================
+// ==========================================================================
+
+
+
+public class UDPConnection {
+    // search addr, port
+    private static let multicastHost: NWEndpoint.Host = "239.255.255.250"
+    private static let multicastPort: NWEndpoint.Port = 1982
+    
+    // search message
+    private static let searchMsg: String = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb"
+    private static let searchBytes = searchMsg.data(using: .utf8)
+    
+    // dispatch management
+    private let serialQueue = DispatchQueue(label: "Serial Queue")
+    private let dispatchGroup = DispatchGroup()
+    
+    // UDP Connection
+    private var searchConn: NWConnection
+    
+    private static var sendCompletion = NWConnection.SendCompletion.contentProcessed { (error) in
+        if error != nil {
+            print(error.debugDescription)
+            return
+        }
+    } // udpSendCompletion
+    
+    
+    
+    init() {
+        // create initial connection
+        self.searchConn = NWConnection(host: UDPConnection.multicastHost, port: UDPConnection.multicastPort, using: .udp)
+        
+    } // UDPController.init()
+    
+    
+    // Get the local port opened to send
+    // Return nil if no hostPort connection found
+    private func getLocalPort(fromConnection conn: NWConnection) -> NWEndpoint.Port? {
+        if let localEndpoint: NWEndpoint = conn.currentPath?.localEndpoint {
+            switch localEndpoint {
+            case .hostPort(_, let port):
+                return port
+            default:
+                return nil
+            }
+        } else {
+            return nil
+        }
+    } // UDPConnection.getLocalPort()
+    
+    
+    // separate function for readability in listener()
+    private func receiver(_ conn: NWConnection, _ closure:@escaping (Data) -> Void) -> Void {
+        
+        conn.receiveMessage { (data, _, _, error) in
+            if error != nil {
+                print(error.debugDescription)
+            }
+            
+            if let data = data {
+                closure(data)
+            }
+        } // receiveMessage
+    } // UDPConnection.receiver()
+    
+    
+    // Listen for reply from multicast
+    private func listener(on port: NWEndpoint.Port, wait mode: DiscoveryWait,  closure: @escaping ([Data]) -> Void) {
+        
+        let lightDispatch = DispatchGroup()
+        var waitTime: UInt64 = 5 // default seconds
+        var waitCount: Int = 0 // default lightCount
+        let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + waitTime * 1000000000)
+        
+        switch mode {
+        // if mode is count, wait for light count before returning
+        case .lightCount(let count):
+            waitCount = count
+            for _ in 0..<count {
+                lightDispatch.enter()
+            }
+        // if mode is timeout, wait input-seconds before returning
+        case .timeoutSeconds(let seconds):
+            waitTime = UInt64(seconds)
+            lightDispatch.enter()
+        }
+        
+        
+        guard let listener = try? NWListener(using: .udp, on: port) else {
+            print("Listener failed")
+            return
+        }
+        
+        // Holds all the data received
+        var dataArray: [Data] = []
+        
+        listener.newConnectionHandler = { (udpNewConn) in
+            // create connection, listen to reply and save data
+            udpNewConn.start(queue: self.serialQueue)
+            
+            self.receiver(udpNewConn, { (data) in
+                
+                switch mode {
+                case .lightCount:
+                    if dataArray.count < waitCount {
+                        dataArray.append(data)
+                        lightDispatch.leave()
+                    }
+                    
+                case .timeoutSeconds:
+                    dataArray.append(data)
+                }
+            })
+        } // newConnectionHandler
+        
+        
+        listener.start(queue: self.serialQueue)
+        
+        
+        if lightDispatch.wait(timeout: futureTime) == .success {
+            print("listener successfully returned \(waitCount) lights")
+            
+        } else {
+            print("listener cancelled after \(futureTime.uptimeNanoseconds / 1000000000) seconds")
+        }
+        
+        // pass data to the closure, cancel the listener and signal that the calling function can progress with the data
+        closure(dataArray)
+        listener.cancel()
+        self.dispatchGroup.leave() // unlock 2
+    } // UDPConnection.listener()
+    
+    
+    
+    public func sendSearchMessage(wait mode: DiscoveryWait, _ closure:@escaping ([Data]) -> Void) {
+        
+        var dataArray: [Data] = []
+        
+        
+        // start connection
+        self.dispatchGroup.enter() // lock 1
+        self.searchConn.start(queue: self.serialQueue)
+        
+        // when conn.state is ready, continue executing function
+        self.searchConn.stateUpdateHandler = { (newState) in
+            switch(newState) {
+            case .ready:
+                print("udp connection ready")
+                self.dispatchGroup.leave() // unlock 1
+            case .waiting:
+                print("No connection available")
+            case .failed(let error):
+                print("UDP connection returned error: \(error)")
+            case .cancelled:
+                print("UDP connection: cancelled")
+            default:
+                return
+            }
+        }
+        
+        
+        // waiting for connection state to be .ready
+        self.dispatchGroup.wait() // wait lock 1
+        
+        // send a search message
+        self.searchConn.send(content: UDPConnection.searchBytes, completion: UDPConnection.sendCompletion)
+        
+        
+        // safely unwrap local port
+        guard let localPort = self.getLocalPort(fromConnection: self.searchConn) else {
+            print("Couldn't find local port")
+            return
+        }
+        
+        
+        self.dispatchGroup.enter() // lock 2
+        // Listen for light replies and create a new light tcp connection
+        self.listener(on: localPort, wait: mode, closure: { (allData) in
+            dataArray = allData
+        })
+        
+        // wait for UDPConnection.listener() to collect data and cancel connection
+        self.dispatchGroup.wait() // wait lock 2 - unlock in listener()
+        closure(dataArray)
+        self.searchConn.cancel()
+    } // UDPConnection.sendSearchMessage()
+    
+    
+} // class UDPConnection
+
+
+
+// ==========================================================================
+// CLASS CONTROLLER =========================================================
+// ==========================================================================
+
 
 
 public class Controller {
@@ -36,40 +260,12 @@ public class Controller {
     public var lights: [String : Light] = [:]
     public var alias: [Alias : ID] = [:]
     
-    // search addr, port
-    private static let multicastHost: NWEndpoint.Host = "239.255.255.250"
-    private static let multicastPort: NWEndpoint.Port = 1982
-    
-    // search message
-    private static let searchMsg: String = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb"
-    private static let searchBytes = searchMsg.data(using: .utf8)
-    
-    
-    private let udpQueue = DispatchQueue(label: "udpQueue")
-    let controlQueue = DispatchQueue(label: "Controller Queue", attributes: .concurrent)
-    private let dispatchGroup = DispatchGroup()
-    
-    
-    public enum DiscoveryWait {
-        case lightCount(Int)
-        case timeoutSeconds(Int)
-        
-        private func integer() -> Int {
-            switch self {
-            case .lightCount(let count):
-                return count
-            case .timeoutSeconds(let seconds):
-                return seconds
-            }
-        }
-    }
-    
-    private var waitMode = DiscoveryWait.timeoutSeconds(2)
-    
+    // set default waitMode to stop discovery after 2 seconds
+    private var stopDiscovery: DiscoveryWait = .timeoutSeconds(2)
     
     
     // parse string data to store light data
-    private func parseData(Decoded decoded: String) -> [Property:Value] {
+    private func parseProperties(Decoded decoded: String) -> [Property:Value] {
         // dictionary of all properties cleaned and separated
         var propertyDict: [Property:Value] = [:]
         
@@ -139,48 +335,29 @@ public class Controller {
     
     
     // handles replies received from lights with listener
-    private func udpDecodeHandler(_ data: Data?) {
-            
-        // is there data?
-        guard let unwrappedData: Data = data else {
-            print("Empty data from UDP message received")
-            return
-        }
+    private func decodeParseAndEstablish(_ data: Data) {
         
         // decode data to String
-        guard let decoded: String = String(data: unwrappedData, encoding: .utf8) else {
+        guard let decoded: String = String(data: data, encoding: .utf8) else {
             print("UDP data message received cannot be decoded")
             return
         }
         
         // separate properties into dictionary to inspect
-        let properties: [Property:Value] = self.parseData(Decoded: decoded)
+        let properties: [Property:Value] = self.parseProperties(Decoded: decoded)
         
         // create tcp connection to each light and save that connection and data
         // print errors identified
-        
         // save the light to class dictionary
-        
         do {
             guard let id = properties["id"] else {
                 throw DiscoveryError.idValue
             }
             
             if self.lights[id] == nil {
-                // use a queue in case Listner's connections are asynchronous and try to access dictionary at the same time
-                try self.controlQueue.sync {
-                    // Add new light to dictionary if doesn't already exist
-                    self.lights[id] = try self.createLight(properties)
-                    
-                    if case DiscoveryWait.lightCount(let expectedCount) = waitMode {
-                        if self.lights.count >= expectedCount {
-                            //cancel listener and connection
-                            // run dispatch work item and add all together?
-                            // put this in a separate function?
-                        }
-                    }
-                }
                 
+                // Add new light to dictionary if doesn't already exist
+                self.lights[id] = try self.createLight(properties)
             }
             
         }
@@ -190,181 +367,43 @@ public class Controller {
         //throw DiscoveryError.idValue
         
         
-    } // Controller.udpReplyHandler()
-    
-    
-    // Listen for reply from multicast
-    private func udpListener(_ port: NWEndpoint.Port) {
-        
-        if let listener = try? NWListener(using: .udp, on: port) {
-            listener.newConnectionHandler = { (udpNewConn) in
-                // create connection, listen to reply and create lights from data received
-                
-                udpNewConn.start(queue: self.udpQueue)
-                
-                udpNewConn.receiveMessage { (data, _, _, error) in
-                    if error != nil {
-                        print(error as Any)
-                    }
-                    
-                    if let data = data {
-                        
-                        self.udpDecodeHandler(data)
-                    }
-                    
-                } // receiveMessage
-                
-                
-                // No use for discovery socket anymore
-                // do I need to sleep the thread before cancelling?
-                ///////////////////////
-                // udpNewConn.cancel()
-                
-            }
-            listener.start(queue: self.udpQueue)
-            
-            // at some point, cancel the listener after X seconds
-        }
-    } // Controller.udpListener()
-    
-    
-    // Get the local port opened to send
-    // Return nil if no hostPort connection found
-    private func getLocalPort(fromConnection conn: NWConnection) -> NWEndpoint.Port? {
-        if let localEndpoint: NWEndpoint = conn.currentPath?.localEndpoint {
-            switch localEndpoint {
-            case .hostPort(_, let port):
-                return port
-            default:
-                return nil
-            }
-        } else {
-            return nil
-        }
-    } // Controller.getLocalPort()
-    
-    
-    
-    
-    /// asynchronously wait during execution to be timed out.  Upon completion, asynchronously execute the code in the closure.
-    private func timeout(seconds: UInt32, closureFunc:@escaping ()->()) {
-        self.controlQueue.async {
-            sleep(seconds)
-            closureFunc()
-        }
-    }
-    
-    
-    
-    
-    
-    
+    } // Controller.decodeHandler()
     
     
     
     // =====================================================================
-    // FUNCTIONS ===========================================================
+    // CONTROLLER FUNCTIONS ================================================
     // =====================================================================
     
     
-    public func discover(wait: DiscoveryWait) {
+    
+    public func discover(wait mode: DiscoveryWait) {
         
-        self.waitMode = wait
+        var dataArray: [Data] = []
         
-        // clear all existing lights
+        // clear all existing lights and save the space in case of re-discovery
         self.lights.removeAll(keepingCapacity: true)
         
-        // Setup UDP connection
-        let udpSearchConn = NWConnection(host: Controller.multicastHost, port: Controller.multicastPort, using: .udp)
+        let udp = UDPConnection()
         
-        
-        let startConnection = DispatchWorkItem {
-            // Start the connection
-            udpSearchConn.start(queue: self.udpQueue)
+        // establish
+        udp.sendSearchMessage(wait: mode) { (data) in
+            dataArray = data
         }
         
-        
-        let searchBlock = DispatchWorkItem {
-            // Get local port.  If returns nil, notify then end discovery
-            guard let localPort = self.getLocalPort(fromConnection: udpSearchConn) else {
-                print("Couldn't find local port")
-                return
-            }
-            
-            // Can probably go to the class variables
-            // Setup procedure to do when search message is sent
-            let sendComplete = NWConnection.SendCompletion.contentProcessed { (error) in
-                if error != nil {
-                    print(error as Any)
-                    return
-                }
-            } // sendComplete
-            
-            // Send search message
-            udpSearchConn.send(content: Controller.searchBytes, completion: sendComplete)
-            
-            // Listen for light replies and create a new light tcp connection
-            self.udpListener(localPort)
-        }
-        
-
-        
-        udpSearchConn.stateUpdateHandler = { (newState) in
-            switch(newState) {
-            case .ready:
-                startConnection.notify(queue: self.controlQueue, execute: searchBlock)
-            case .waiting:
-                print("No connection available")
-            case .failed(let error):
-                print("UDP connection returned error: \(error)")
-                startConnection.cancel()
-            case .cancelled:
-                print("UDP connection: cancelled")
-                startConnection.cancel()
-            default:
-                return
+        if !dataArray.isEmpty {
+            for data in dataArray {
+                self.decodeParseAndEstablish(data)
             }
         }
-        
-        
-        self.controlQueue.async(execute: startConnection)
-        
-        
-        
-        //let waitResult = self.dispatchGroup.wait(timeout: .now() + 1)
-        
-        
-        
-        
-       /*
-         self.timeout(seconds: 1) {
-         // start connection attempt timeout - do I need this?  Test it.
-         if udpSearchConn.state != .ready {
-         udpSearchConn.cancel()
-         self.dispatchGroup.leave()
-         }
-         }
-         
-         
-         if waitResult == .timedOut {
-         
-         }
-         
-         if udpSearchConn.state != .ready {
-         udpSearchConn.cancel()
-         self.dispatchGroup.leave()
-         }
-         
-         
-        */
-        
-        
-        
-        
-        
         
     } // Controller.discover()
     
+    
+    // set an alias for the lights instead of remembering the IDs
+    public func setLightAlias() {
+        
+    }
     
     
 } // class Controller

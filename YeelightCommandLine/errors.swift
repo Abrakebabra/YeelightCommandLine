@@ -15,6 +15,10 @@ public enum DiscoveryError: Error {
     case idValue
 }
 
+public enum UDPError: Error {
+    case receiveData(String)
+}
+
 
 public enum RequestError: Error {
     case stringToData

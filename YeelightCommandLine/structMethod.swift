@@ -8,6 +8,20 @@
 
 import Foundation
 
+// ==========================================================================
+// CONTENTS =================================================================
+// ==========================================================================
+
+// public enum Enums
+    // public enum Effect
+    // public enum PowerState
+    // public enum numOfStateChanges
+    // public enum onCompletion
+    // public enum setState
+
+// public struct Method
+    // various methods
+
 
 /// Enumerators for Method structs
 public enum Enums {

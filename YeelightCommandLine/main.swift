@@ -12,7 +12,7 @@ var runProgram = true
 let controller = Controller()
 
 
-controller.discover(wait: .timeoutSeconds(5))
+controller.discover(wait: .lightCount(6))
 
 
 /*

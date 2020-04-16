@@ -22,6 +22,7 @@ for (key, value) in controller.lights {
 }
 */
 
+sleep(1)
 
 while runProgram == true {
     print("Awaiting input")
@@ -82,9 +83,12 @@ while runProgram == true {
                 print(error)
             }
         }
+    case "discover":
+        controller.discover(wait: .lightCount(6))
+        
     case "exit":
         for (key, _) in controller.lights {
-            controller.lights[key]?.receiverLoop = false
+            controller.lights[key]?.receiveLoop = false
             controller.lights[key]?.tcp.conn.cancel()
         }
         print("Exiting...")

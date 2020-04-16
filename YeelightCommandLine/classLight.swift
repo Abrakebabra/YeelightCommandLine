@@ -90,27 +90,28 @@ public struct State {
 
 
 // All things related to the tcp connection between program and light
-public class TCPConnection {
-    public let ipEndpoint: NWEndpoint.Host
-    public let portEndpoint: NWEndpoint.Port
-    
-    public let conn: NWConnection
-    public var status: String
-    private let dispatchQueue: DispatchQueue
+public class TCPConnection: Connection {
+    public var ip: String
+    public var port: String
+    public var id: String
     
     
-    init(_ ip: String, _ port: String) throws {
-        self.ipEndpoint = NWEndpoint.Host(ip)
+    init(_ ip: String, _ port: String, _ id: String) throws {
+        self.ip = ip
+        self.port = port
+        self.id = id
+        
         guard let portEndpoint = NWEndpoint.Port(port) else {
             throw DiscoveryError.tcpInitFailed("Port not found")
         }
-        self.portEndpoint = portEndpoint
-        self.conn = NWConnection.init(host: self.ipEndpoint, port: self.portEndpoint, using: .tcp)
-        self.status = "unknown"
-        self.dispatchQueue = DispatchQueue(label: "tcpConn Queue")
         
-        self.conn.start(queue: self.dispatchQueue)
-    }
+        let tcpParams = NWParameters.tcp
+        tcpParams.acceptLocalOnly = true
+        
+        super.init(host: NWEndpoint.Host(ip), port: portEndpoint,
+                   serialQueueLabel: "TCP Queue", connType: tcpParams)
+        
+    } // init
 } // struct TCPConnection
 
 
@@ -134,9 +135,6 @@ public struct Info {
 
 
 
-
-
-
 // ==========================================================================
 // CLASS LIGHT ==============================================================
 // ==========================================================================
@@ -147,10 +145,15 @@ public class Light {
     
     public var state: State
     public var tcp: TCPConnection
+    public var musicModeTCP: TCPConnection?
     public var info: Info
     public var requestTicket: Int = 0
-    public var receiverLoop: Bool = true // make this private later
+    public var receiveLoop: Bool = true // turn to private later
     
+    public enum Connection {
+        case standardTCP
+        case musicModeTCP
+    }
     
     init(_ id: String, _ ip: String, _ port: String,
          _ power: String, _ colorMode: String, _ brightness: String,
@@ -162,46 +165,20 @@ public class Light {
         
         // Holds the connection
         // throws if can't convert string to NWendpoint.Port
-        self.tcp = try TCPConnection(ip, port)
+        self.tcp = try TCPConnection(ip, port, id)
         
         // Holds supporting information and identifiers
         self.info = Info(id, ip, name, model, support)
-        
-        self.tcp.conn.stateUpdateHandler = { (newState) in
-            switch(newState) {
-            case .setup:
-                self.tcp.status = "setup"
-            case .preparing:
-                self.tcp.status = "preparing"
-            case .ready:
-                self.tcp.status = "ready"
-                print("\(self.info.ip), \(self.info.id) ready")
-            case .waiting(let error):
-                self.tcp.status = "waiting"
-                print("\(self.info.ip), \(self.info.id) waiting with error: \(error)")
-            case .failed(let error):
-                self.tcp.status = "failed"
-                print("\(self.info.ip), \(self.info.id) tcp connection failed with error: \(error)")
-            case .cancelled:
-                self.tcp.status = "cancelled"
-                print("\(self.info.ip), \(self.info.id) tcp connection cancelled")
-            @unknown default:
-                // recommended in case of future changes
-                self.tcp.status = "unknown"
-                print("Unknown status for \(self.info.ip), \(self.info.id)")
-            } // switch
-        } // stateUpdateHandler
         
         
         // A constant receiver
         self.receiveAndUpdateState()
         
-        
     } // Light.init()
     
     
     deinit {
-        self.receiverLoop = false
+        self.receiveLoop = false
         self.tcp.conn.cancel()
         // sleep(1) Should I give the receive function time to throw error and for the queue to deinitialize?
     } // Light.deinit()
@@ -291,7 +268,7 @@ public class Light {
     
     
     // decode response received from light and handle them
-    private func jsonDecodeAndHandle(_ data: Data?) throws {
+    private func jsonDecodeAndHandle(_ data: Data) throws {
         /*
          JSON RESPONSES
          
@@ -322,10 +299,6 @@ public class Light {
  
         */
         
-        // Is there data?
-        guard let data = data else {
-            throw JSONError.noData
-        }
         
         // jsonserialization object
         let json = try JSONSerialization.jsonObject(with: data, options: [])
@@ -375,42 +348,22 @@ public class Light {
     } // Light.jsonDecode()
     
     
-    // decides on what to do with network errors
-    private func receiveErrorHandler(_ error: NWError?, _ earlyReturn:
-        (Bool) -> Void) {
-        
-        if error == NWError.posix(POSIXErrorCode.ECANCELED) {
-            
-            // if ECANCELED received when not cancelling connection
-            // I want to find out if this ever happens for now
-            // don't stop receiving
-            if self.receiverLoop == true {
-                print("Unplanned POSIXErrorCode.ECANCELED")
-                print("\(self.info.id) receive error on ip \(self.info.ip):  \(error.debugDescription)")
-                // continue without stopping to see if any other issues arise
-                earlyReturn(false)
-                
-            // If the receiver loop is false, ECANCELED is planned
-            // stop receiving
-            } else {
-                self.receiverLoop = false
-                earlyReturn(true)
-            }
-            
-        // Print any other errors that arise and don't stop receiving
-        } else {
-            print("\(self.info.id) receive error on ip \(self.info.ip):  \(error.debugDescription)")
-            earlyReturn(false)
-        }
-    }
-    
-    
     // handles the receiving from tcp conn with light
     private func receiveAndUpdateState() -> Void {
         self.tcp.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, error) in
             // Data?, NWConnection.ContentContext?, Bool, NWError?
             
-            if error == nil {
+            if self.receiveLoop == false {
+                return
+            }
+            
+            if error != nil {
+                self.receiveLoop = false
+                print("\(self.info.id), \(self.info.ip):  \(error.debugDescription)")
+                return
+            }
+            
+            if let data = data {
                 do {
                     // receives tcp messages and handles them
                     try self.jsonDecodeAndHandle(data)
@@ -418,18 +371,10 @@ public class Light {
                 catch let handlingError {
                     print(handlingError)
                 }
-                
-            } else {
-                self.receiveErrorHandler(error, { (earlyReturn) in
-                    if earlyReturn == true {
-                        return
-                    }
-                })
-                
             }
             
             // recurse
-            if self.receiverLoop == true {
+            if self.receiveLoop == true {
                 self.receiveAndUpdateState()
             }
             
@@ -464,15 +409,10 @@ public class Light {
         
         let requestContent = message.data(using: .utf8)
         
-        let sendCompletion = NWConnection.SendCompletion.contentProcessed { (NWError) in
-            if NWError != nil {
-                print("TCP error in message sent:\n  ID: \(self.info.id)\n  IP: \(self.info.ip)\n  Error: \(NWError.debugDescription)")
-            }
-        } // let sendCompletion
-        
-        self.tcp.conn.send(content: requestContent, completion: sendCompletion)
+        self.tcp.conn.send(content: requestContent, completion: self.tcp.sendCompletion)
         
     } // Light.communicate()
+    
     
     
     

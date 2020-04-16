@@ -20,7 +20,7 @@ public class Connection {
     let serialQueue: DispatchQueue
     let dispatchGroup = DispatchGroup()
     
-    // UDP Connection
+    // Connection
     var conn: NWConnection
     
     var sendCompletion = NWConnection.SendCompletion.contentProcessed { (error) in
@@ -30,6 +30,22 @@ public class Connection {
         }
     } // sendCompletion
     
+    // if the status is set to "ready", the closure is able to be called
+    var statusReady: (() -> Void)?
+    var status: String = "unknown" {
+        didSet {
+            if status == "ready" {
+                statusReady?()
+            }
+        }
+    }
+    
+    var newDataReceived: (() -> Void)?
+    var newData: Data? {
+        didSet {
+            newDataReceived?()
+        }
+    }
     
     
     init(host: NWEndpoint.Host, port: NWEndpoint.Port, serialQueueLabel: String, connType: NWParameters) {
@@ -40,6 +56,34 @@ public class Connection {
         
         // create initial connection
         self.conn = NWConnection(host: self.endpointHost, port: self.endpointPort, using: connType)
+        
+        // start connection
+        self.conn.start(queue: self.serialQueue)
+        
+        self.conn.stateUpdateHandler = { (newState) in
+            switch(newState) {
+            case .setup:
+                self.status = "setup"
+            case .preparing:
+                self.status = "preparing"
+            case .ready:
+                self.status = "ready"
+                print("\(self.endpointHost.debugDescription): \(self.endpointPort.debugDescription) ready")
+            case .waiting(let error):
+                self.status = "waiting"
+                print("\(self.endpointHost.debugDescription): \(self.endpointPort.debugDescription) waiting with error: \(error.debugDescription)")
+            case .failed(let error):
+                self.status = "failed"
+                print("\(self.endpointHost.debugDescription): \(self.endpointPort.debugDescription), connection failed with error: \(error.debugDescription)")
+            case .cancelled:
+                self.status = "cancelled"
+                print("\(self.endpointHost.debugDescription): \(self.endpointPort.debugDescription) connection cancelled")
+            @unknown default:
+                // recommended in case of future changes
+                self.status = "unknown"
+                print("Unknown status for \(self.endpointHost.debugDescription)")
+            } // switch
+        } // stateUpdateHandler
         
     } // Connection.init()
     

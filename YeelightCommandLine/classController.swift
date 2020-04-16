@@ -59,11 +59,22 @@ public class UDPConnection: Connection {
     private static let searchMsg: String = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb"
     private static let searchBytes = searchMsg.data(using: .utf8)
     
-    
+    var readyExecutor: String {
+        get {
+            if self.status == "ready" {
+                print("YEP")
+                //self.dispatchGroup.leave() // unlock 1
+            }
+            return self.status
+        }
+    }
     
     init() {
+        let udpParams = NWParameters.udp
+        udpParams.acceptLocalOnly = true
+        
         super.init(host: "239.255.255.250", port: 1982,
-                   serialQueueLabel: "UDP Queue", connType: .udp)
+                   serialQueueLabel: "UDP Queue", connType: udpParams)
     } // UDPConnection.init()
     
     
@@ -101,19 +112,27 @@ public class UDPConnection: Connection {
             // create connection, listen to reply and save data
             udpNewConn.start(queue: self.serialQueue)
             
-            self.receiver(udpNewConn, { (data) in
+            udpNewConn.receiveMessage(completion: { (data, _, _, error) in
                 
-                switch mode {
-                case .lightCount:
-                    if dataArray.count < waitCount {
-                        dataArray.append(data)
-                        lightDispatch.leave()
-                    }
+                if error != nil {
+                    print(error.debugDescription)
                     
-                case .timeoutSeconds:
-                    dataArray.append(data)
                 }
-            })
+                
+                if let data = data {
+                    switch mode {
+                    case .lightCount:
+                        if dataArray.count < waitCount {
+                            dataArray.append(data)
+                            lightDispatch.leave()
+                        }
+                        
+                    case .timeoutSeconds:
+                        dataArray.append(data)
+                    } // switch
+                } // data? unwrap
+            }) // receiveMessage
+            
         } // newConnectionHandler
         
         
@@ -140,27 +159,20 @@ public class UDPConnection: Connection {
         
         // start connection
         self.dispatchGroup.enter() // lock 1
-        self.conn.start(queue: self.serialQueue)
+        // self.conn.start(queue: self.serialQueue)
         
-        // when conn.state is ready, continue executing function
-        self.conn.stateUpdateHandler = { (newState) in
-            switch(newState) {
-            case .ready:
-                print("udp connection ready")
-                self.dispatchGroup.leave() // unlock 1
-            case .waiting:
-                print("No connection available")
-            case .failed(let error):
-                print("UDP connection returned error: \(error)")
-            case .cancelled:
-                print("UDP connection: cancelled")
-            default:
-                return
-            }
+        // 1 second to ready the connection
+        let connPrepTimeout = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + 1 * 1000000000)
+        
+        
+        self.statusReady = {
+            self.dispatchGroup.leave()
         }
         
         // waiting for connection state to be .ready
-        self.dispatchGroup.wait() // wait lock 1
+        if self.dispatchGroup.wait(timeout: connPrepTimeout) == .timedOut {
+            return
+        }// wait lock 1 (with timeout)
         
         // send a search message
         self.conn.send(content: UDPConnection.searchBytes, completion: self.sendCompletion)
@@ -178,7 +190,7 @@ public class UDPConnection: Connection {
         })
         
         // wait for UDPConnection.listener() to collect data
-        self.dispatchGroup.wait() // wait lock 2 - unlock in listener()
+        self.dispatchGroup.wait() // wait lock 2 - unlock in listener() - also with timeout
         self.conn.cancel()
     } // UDPConnection.sendSearchMessage()
     
@@ -327,17 +339,22 @@ public class Controller {
     
     public func discover(wait mode: DiscoveryWait = .timeoutSeconds(2)) {
         // clear all existing lights and save the space in case of re-discovery
+        for (_, value) in self.lights {
+            value.tcp.conn.cancel()
+        }
+        sleep(1)
         self.lights.removeAll(keepingCapacity: true)
         
-        let udp = UDPConnection()
+        var udp: UDPConnection? = UDPConnection()
         
         // establish
-        udp.sendSearchMessage(wait: mode) { (dataArray) in
+        udp?.sendSearchMessage(wait: mode) { (dataArray) in
             for i in dataArray {
                 self.decodeParseAndEstablish(i)
             }
         }
         
+        udp = nil
         
     } // Controller.discover()
     

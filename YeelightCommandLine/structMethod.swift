@@ -286,21 +286,16 @@ public struct Method {
     public struct set_colorFlow {
         
         public struct CreateExpressions {
-            public var allExpressions: [Int]
+            public var allExpressions: [Int] = []
             
-            init() {
-                self.allExpressions = []
-            }
-            
-            // check what mutating does
+            // add a new flow state
             public mutating func addState(_ expression: Enums.setState) throws {
                 try self.allExpressions.append(contentsOf: expression.params())
                 
             }
             
+            // output this to a clean string "1, 2, 3, 4, 5" with no square parenthesis
             fileprivate func output() -> (Int, String) {
-                // output this to a clean string "1, 2, 3, 4, 5" with no square parenthesis
-                
                 var tupleString: String = ""
                 
                 for i in self.allExpressions {

@@ -30,6 +30,9 @@ public class Connection {
         }
     } // sendCompletion
     
+    // if true, will always have a recursive receiver
+    var receiveLoop: Bool = false
+    
     // if the status is set to "ready", the closure is able to be called
     var statusReady: (() -> Void)?
     var status: String = "unknown" {
@@ -40,15 +43,45 @@ public class Connection {
         }
     }
     
-    var newDataReceived: (() -> Void)?
+    // not expecting to receive multi-message data
+    // each time newData is set, the closure will execute anywhere it is called, able to access the data
+    var newDataReceived: ((Data?) -> Void)?
     var newData: Data? {
         didSet {
-            newDataReceived?()
+            newDataReceived?(newData)
         }
     }
     
     
-    init(host: NWEndpoint.Host, port: NWEndpoint.Port, serialQueueLabel: String, connType: NWParameters) {
+    
+    // handles the receiving from tcp conn with light
+    private func receiveRecursively() -> Void {
+        self.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, error) in
+            // Data?, NWConnection.ContentContext?, Bool, NWError?
+            
+            if self.receiveLoop == false {
+                return
+            }
+            
+            if error != nil {
+                self.receiveLoop = false
+                print("\(self.endpointHost):  \(error.debugDescription)")
+                return
+            }
+            
+            self.newData = data
+            
+            // recurse
+            if self.receiveLoop == true {
+                self.receiveRecursively()
+            }
+            
+        } // conn.receive closure
+    } // Light.receiveAndUpdateState()
+    
+    
+    
+    init(host: NWEndpoint.Host, port: NWEndpoint.Port, serialQueueLabel: String, connType: NWParameters, receiveLoop: Bool) {
         
         self.endpointHost = host
         self.endpointPort = port
@@ -85,6 +118,11 @@ public class Connection {
             } // switch
         } // stateUpdateHandler
         
+        // actively receive messages received and set up new receiver
+        if receiveLoop == true {
+            self.receiveRecursively()
+        }
+        
     } // Connection.init()
     
     
@@ -102,20 +140,5 @@ public class Connection {
             return nil
         }
     } // Connection.getLocalPort()
-    
-    
-    // separate function for readability for use in different functions
-    func receiver(_ conn: NWConnection, _ closure:@escaping (Data) -> Void) -> Void {
-        
-        conn.receiveMessage { (data, _, _, error) in
-            if error != nil {
-                print(error.debugDescription)
-            }
-            
-            if let data = data {
-                closure(data)
-            }
-        } // receiveMessage
-    } // Connection.receiver()
     
 } // class Connection

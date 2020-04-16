@@ -59,29 +59,22 @@ public class UDPConnection: Connection {
     private static let searchMsg: String = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb"
     private static let searchBytes = searchMsg.data(using: .utf8)
     
-    var readyExecutor: String {
-        get {
-            if self.status == "ready" {
-                print("YEP")
-                //self.dispatchGroup.leave() // unlock 1
-            }
-            return self.status
-        }
-    }
+    
     
     init() {
         let udpParams = NWParameters.udp
         udpParams.acceptLocalOnly = true
         
         super.init(host: "239.255.255.250", port: 1982,
-                   serialQueueLabel: "UDP Queue", connType: udpParams)
+                   serialQueueLabel: "UDP Queue", connType: udpParams,
+                   receiveLoop: false)
     } // UDPConnection.init()
     
     
     // Listen for reply from multicast
-    private func listener(on port: NWEndpoint.Port, wait mode: DiscoveryWait,  closure: @escaping ([Data]) -> Void) {
+    private func listener(on port: NWEndpoint.Port, wait mode: DiscoveryWait, closure: @escaping ([Data]) -> Void) {
         
-        let lightDispatch = DispatchGroup()
+        let listenerGroup = DispatchGroup()
         var waitCount: Int = 0 // default lightCount
         var waitTime: UInt64 = 5 // default timeout seconds
         let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + waitTime * 1000000000)
@@ -91,12 +84,12 @@ public class UDPConnection: Connection {
         case .lightCount(let count):
             waitCount = count
             for _ in 0..<count {
-                lightDispatch.enter()
+                listenerGroup.enter()
             }
         // if mode is timeout, wait input-seconds before returning
         case .timeoutSeconds(let seconds):
             waitTime = UInt64(seconds)
-            lightDispatch.enter()
+            listenerGroup.enter()
         }
         
         
@@ -123,8 +116,8 @@ public class UDPConnection: Connection {
                     switch mode {
                     case .lightCount:
                         if dataArray.count < waitCount {
-                            dataArray.append(data)
-                            lightDispatch.leave()
+                            dataArray.append(data) // save data
+                            listenerGroup.leave() // reduce wait count
                         }
                         
                     case .timeoutSeconds:
@@ -140,7 +133,7 @@ public class UDPConnection: Connection {
         listener.start(queue: self.serialQueue)
         
         // wait time, or timeout if not all expected lights found
-        if lightDispatch.wait(timeout: futureTime) == .success {
+        if listenerGroup.wait(timeout: futureTime) == .success {
             print("listener successfully returned \(waitCount) lights")
             
         } else {
@@ -157,22 +150,22 @@ public class UDPConnection: Connection {
     
     public func sendSearchMessage(wait mode: DiscoveryWait, _ closure:@escaping ([Data]) -> Void) {
         
-        // start connection
-        self.dispatchGroup.enter() // lock 1
-        // self.conn.start(queue: self.serialQueue)
-        
         // 1 second to ready the connection
         let connPrepTimeout = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + 1 * 1000000000)
         
+        self.dispatchGroup.enter() // lock 1
+        // wait for self.conn to be in ready state
         
         self.statusReady = {
             self.dispatchGroup.leave()
         }
         
+        // wait lock 1
         // waiting for connection state to be .ready
         if self.dispatchGroup.wait(timeout: connPrepTimeout) == .timedOut {
+            print("Search UDP connection timed out")
             return
-        }// wait lock 1 (with timeout)
+        } // wait lock 1 (with timeout)
         
         // send a search message
         self.conn.send(content: UDPConnection.searchBytes, completion: self.sendCompletion)
@@ -298,7 +291,7 @@ public class Controller {
     private func decodeParseAndEstablish(_ data: Data) {
         
         // decode data to String
-        guard let decoded: String = String(data: data, encoding: .utf8) else {
+        guard let decoded = String(data: data, encoding: .utf8) else {
             print("UDP data message received cannot be decoded")
             return
         }
@@ -324,8 +317,6 @@ public class Controller {
         catch let error {
             print(error)
         }
-        //throw DiscoveryError.idValue
-        
         
     } // Controller.decodeHandler()
     

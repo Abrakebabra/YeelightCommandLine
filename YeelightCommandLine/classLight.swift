@@ -109,7 +109,8 @@ public class TCPConnection: Connection {
         tcpParams.acceptLocalOnly = true
         
         super.init(host: NWEndpoint.Host(ip), port: portEndpoint,
-                   serialQueueLabel: "TCP Queue", connType: tcpParams)
+                   serialQueueLabel: "TCP Queue", connType: tcpParams,
+                   receiveLoop: true)
         
     } // init
 } // struct TCPConnection
@@ -148,40 +149,12 @@ public class Light {
     public var musicModeTCP: TCPConnection?
     public var info: Info
     public var requestTicket: Int = 0
-    public var receiveLoop: Bool = true // turn to private later
     
     public enum Connection {
         case standardTCP
         case musicModeTCP
     }
     
-    init(_ id: String, _ ip: String, _ port: String,
-         _ power: String, _ colorMode: String, _ brightness: String,
-         _ colorTemp: String, _ rgb: String, _ hue: String, _ sat: String,
-         _ name: String, _ model: String, _ support: String) throws {
-        
-        // Holds the light's current state
-        self.state = State(power, colorMode, brightness, colorTemp, rgb, hue, sat)
-        
-        // Holds the connection
-        // throws if can't convert string to NWendpoint.Port
-        self.tcp = try TCPConnection(ip, port, id)
-        
-        // Holds supporting information and identifiers
-        self.info = Info(id, ip, name, model, support)
-        
-        
-        // A constant receiver
-        self.receiveAndUpdateState()
-        
-    } // Light.init()
-    
-    
-    deinit {
-        self.receiveLoop = false
-        self.tcp.conn.cancel()
-        // sleep(1) Should I give the receive function time to throw error and for the queue to deinitialize?
-    } // Light.deinit()
     
     
     // update the state of the light
@@ -348,38 +321,38 @@ public class Light {
     } // Light.jsonDecode()
     
     
-    // handles the receiving from tcp conn with light
-    private func receiveAndUpdateState() -> Void {
-        self.tcp.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, error) in
-            // Data?, NWConnection.ContentContext?, Bool, NWError?
-            
-            if self.receiveLoop == false {
-                return
-            }
-            
-            if error != nil {
-                self.receiveLoop = false
-                print("\(self.info.id), \(self.info.ip):  \(error.debugDescription)")
-                return
-            }
-            
+    
+    init(_ id: String, _ ip: String, _ port: String,
+         _ power: String, _ colorMode: String, _ brightness: String,
+         _ colorTemp: String, _ rgb: String, _ hue: String, _ sat: String,
+         _ name: String, _ model: String, _ support: String) throws {
+        
+        // Holds the light's current state
+        self.state = State(power, colorMode, brightness, colorTemp, rgb, hue, sat)
+        
+        // Holds the connection
+        // throws if can't convert string to NWendpoint.Port
+        self.tcp = try TCPConnection(ip, port, id)
+        
+        // Holds supporting information and identifiers
+        self.info = Info(id, ip, name, model, support)
+        
+        
+        // handle new data received in closure from didSet var
+        self.tcp.newDataReceived = { (data) in
             if let data = data {
+                
                 do {
-                    // receives tcp messages and handles them
                     try self.jsonDecodeAndHandle(data)
                 }
-                catch let handlingError {
-                    print(handlingError)
+                catch let error {
+                    print(error)
                 }
             }
-            
-            // recurse
-            if self.receiveLoop == true {
-                self.receiveAndUpdateState()
-            }
-            
-        } // conn.receive closure
-    } // Light.receiveAndUpdateState()
+        }
+        
+    } // Light.init()
+    
     
     
     // Send a command to the light

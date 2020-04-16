@@ -88,7 +88,7 @@ while runProgram == true {
         
     case "exit":
         for (key, _) in controller.lights {
-            controller.lights[key]?.receiveLoop = false
+            controller.lights[key]?.tcp.receiveLoop = false
             controller.lights[key]?.tcp.conn.cancel()
         }
         print("Exiting...")

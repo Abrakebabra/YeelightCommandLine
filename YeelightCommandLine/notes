@@ -46,6 +46,14 @@ If light is flowing, needs to send a command to stop it or it won't change by it
 
 
 
+perhaps ping the lights periodically to prevent them from sleeping using a get_prop or something
+
+
+separate out tcp component to rest of light class?
+
+
+
+
 
 Fix:
  - Sort out error names: Only enum cases are printed, not enum name itself.

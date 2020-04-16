@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		6425FE4E2418A3C2007E5B5E /* errors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6425FE4D2418A3C2007E5B5E /* errors.swift */; };
 		6482E59B241FAE1B001C1CE9 /* classLight.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6482E59A241FAE1B001C1CE9 /* classLight.swift */; };
+		64A2AD9424478BCC00EAB333 /* classConnection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64A2AD9324478BCC00EAB333 /* classConnection.swift */; };
 		64BB9ADF241642E500825D95 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BB9ADE241642E500825D95 /* main.swift */; };
 		64BB9AE62416B46600825D95 /* classController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64BB9AE52416B46600825D95 /* classController.swift */; };
 		64DEECB0244223FE00A0E759 /* structMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DEECAF244223FE00A0E759 /* structMethod.swift */; };
@@ -29,6 +30,7 @@
 /* Begin PBXFileReference section */
 		6425FE4D2418A3C2007E5B5E /* errors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = errors.swift; sourceTree = "<group>"; };
 		6482E59A241FAE1B001C1CE9 /* classLight.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = classLight.swift; sourceTree = "<group>"; };
+		64A2AD9324478BCC00EAB333 /* classConnection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = classConnection.swift; sourceTree = "<group>"; };
 		64B93A23242297DB001BBC42 /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		64B93A242422983B001BBC42 /* notes */ = {isa = PBXFileReference; lastKnownFileType = text; path = notes; sourceTree = "<group>"; };
 		64BB9ADB241642E500825D95 /* YeelightCommandLine */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = YeelightCommandLine; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -71,6 +73,7 @@
 				64BB9AE52416B46600825D95 /* classController.swift */,
 				6482E59A241FAE1B001C1CE9 /* classLight.swift */,
 				64DEECAF244223FE00A0E759 /* structMethod.swift */,
+				64A2AD9324478BCC00EAB333 /* classConnection.swift */,
 				6425FE4D2418A3C2007E5B5E /* errors.swift */,
 				64B93A23242297DB001BBC42 /* README.md */,
 				64B93A242422983B001BBC42 /* notes */,
@@ -135,6 +138,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				64A2AD9424478BCC00EAB333 /* classConnection.swift in Sources */,
 				6425FE4E2418A3C2007E5B5E /* errors.swift in Sources */,
 				64BB9AE62416B46600825D95 /* classController.swift in Sources */,
 				64BB9ADF241642E500825D95 /* main.swift in Sources */,

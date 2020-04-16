@@ -14,7 +14,6 @@ let controller = Controller()
 
 controller.discover(wait: .lightCount(6))
 
-
 /*
 sleep(2)
 

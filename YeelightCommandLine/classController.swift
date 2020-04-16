@@ -53,75 +53,26 @@ public enum DiscoveryWait {
 
 
 
-public class UDPConnection {
-    // search addr, port
-    private static let multicastHost: NWEndpoint.Host = "239.255.255.250"
-    private static let multicastPort: NWEndpoint.Port = 1982
+public class UDPConnection: Connection {
     
     // search message
     private static let searchMsg: String = "M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1982\r\nMAN: \"ssdp:discover\"\r\nST: wifi_bulb"
     private static let searchBytes = searchMsg.data(using: .utf8)
     
-    // dispatch management
-    private let serialQueue = DispatchQueue(label: "Serial Queue")
-    private let dispatchGroup = DispatchGroup()
-    
-    // UDP Connection
-    private var searchConn: NWConnection
-    
-    private static var sendCompletion = NWConnection.SendCompletion.contentProcessed { (error) in
-        if error != nil {
-            print(error.debugDescription)
-            return
-        }
-    } // udpSendCompletion
-    
     
     
     init() {
-        // create initial connection
-        self.searchConn = NWConnection(host: UDPConnection.multicastHost, port: UDPConnection.multicastPort, using: .udp)
-        
-    } // UDPController.init()
-    
-    
-    // Get the local port opened to send
-    // Return nil if no hostPort connection found
-    private func getLocalPort(fromConnection conn: NWConnection) -> NWEndpoint.Port? {
-        if let localEndpoint: NWEndpoint = conn.currentPath?.localEndpoint {
-            switch localEndpoint {
-            case .hostPort(_, let port):
-                return port
-            default:
-                return nil
-            }
-        } else {
-            return nil
-        }
-    } // UDPConnection.getLocalPort()
-    
-    
-    // separate function for readability in listener()
-    private func receiver(_ conn: NWConnection, _ closure:@escaping (Data) -> Void) -> Void {
-        
-        conn.receiveMessage { (data, _, _, error) in
-            if error != nil {
-                print(error.debugDescription)
-            }
-            
-            if let data = data {
-                closure(data)
-            }
-        } // receiveMessage
-    } // UDPConnection.receiver()
+        super.init(host: "239.255.255.250", port: 1982,
+                   serialQueueLabel: "UDP Queue", connType: .udp)
+    } // UDPConnection.init()
     
     
     // Listen for reply from multicast
     private func listener(on port: NWEndpoint.Port, wait mode: DiscoveryWait,  closure: @escaping ([Data]) -> Void) {
         
         let lightDispatch = DispatchGroup()
-        var waitTime: UInt64 = 5 // default seconds
         var waitCount: Int = 0 // default lightCount
+        var waitTime: UInt64 = 5 // default timeout seconds
         let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + waitTime * 1000000000)
         
         switch mode {
@@ -166,9 +117,10 @@ public class UDPConnection {
         } // newConnectionHandler
         
         
+        // start the light
         listener.start(queue: self.serialQueue)
         
-        
+        // wait time, or timeout if not all expected lights found
         if lightDispatch.wait(timeout: futureTime) == .success {
             print("listener successfully returned \(waitCount) lights")
             
@@ -186,15 +138,12 @@ public class UDPConnection {
     
     public func sendSearchMessage(wait mode: DiscoveryWait, _ closure:@escaping ([Data]) -> Void) {
         
-        var dataArray: [Data] = []
-        
-        
         // start connection
         self.dispatchGroup.enter() // lock 1
-        self.searchConn.start(queue: self.serialQueue)
+        self.conn.start(queue: self.serialQueue)
         
         // when conn.state is ready, continue executing function
-        self.searchConn.stateUpdateHandler = { (newState) in
+        self.conn.stateUpdateHandler = { (newState) in
             switch(newState) {
             case .ready:
                 print("udp connection ready")
@@ -210,31 +159,27 @@ public class UDPConnection {
             }
         }
         
-        
         // waiting for connection state to be .ready
         self.dispatchGroup.wait() // wait lock 1
         
         // send a search message
-        self.searchConn.send(content: UDPConnection.searchBytes, completion: UDPConnection.sendCompletion)
-        
+        self.conn.send(content: UDPConnection.searchBytes, completion: self.sendCompletion)
         
         // safely unwrap local port
-        guard let localPort = self.getLocalPort(fromConnection: self.searchConn) else {
+        guard let localPort = self.getLocalPort(fromConnection: self.conn) else {
             print("Couldn't find local port")
             return
         }
         
-        
         self.dispatchGroup.enter() // lock 2
         // Listen for light replies and create a new light tcp connection
-        self.listener(on: localPort, wait: mode, closure: { (allData) in
-            dataArray = allData
+        self.listener(on: localPort, wait: mode, closure: { (dataArray) in
+            closure(dataArray)
         })
         
-        // wait for UDPConnection.listener() to collect data and cancel connection
+        // wait for UDPConnection.listener() to collect data
         self.dispatchGroup.wait() // wait lock 2 - unlock in listener()
-        closure(dataArray)
-        self.searchConn.cancel()
+        self.conn.cancel()
     } // UDPConnection.sendSearchMessage()
     
     
@@ -260,8 +205,6 @@ public class Controller {
     public var lights: [String : Light] = [:]
     public var alias: [Alias : ID] = [:]
     
-    // set default waitMode to stop discovery after 2 seconds
-    private var stopDiscovery: DiscoveryWait = .timeoutSeconds(2)
     
     
     // parse string data to store light data
@@ -294,11 +237,16 @@ public class Controller {
             } else {
                 let keyValue: [String] =
                     i.components(separatedBy: ": ")
-                let key: Property = keyValue[0]
-                let value: Value = keyValue[1]
                 
-                // add key value pair to dictionary
-                propertyDict[key] = value
+                // in case a future update changes the response which results in an index range error
+                if keyValue.count == 2 {
+                    let key: Property = keyValue[0]
+                    let value: Value = keyValue[1]
+                    
+                    // add key value pair to dictionary
+                    propertyDict[key] = value
+                }
+                
             }
         }
         // possible to return empty
@@ -377,25 +325,19 @@ public class Controller {
     
     
     
-    public func discover(wait mode: DiscoveryWait) {
-        
-        var dataArray: [Data] = []
-        
+    public func discover(wait mode: DiscoveryWait = .timeoutSeconds(2)) {
         // clear all existing lights and save the space in case of re-discovery
         self.lights.removeAll(keepingCapacity: true)
         
         let udp = UDPConnection()
         
         // establish
-        udp.sendSearchMessage(wait: mode) { (data) in
-            dataArray = data
-        }
-        
-        if !dataArray.isEmpty {
-            for data in dataArray {
-                self.decodeParseAndEstablish(data)
+        udp.sendSearchMessage(wait: mode) { (dataArray) in
+            for i in dataArray {
+                self.decodeParseAndEstablish(i)
             }
         }
+        
         
     } // Controller.discover()
     

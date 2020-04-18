@@ -382,7 +382,16 @@ public class Light {
         
         let requestContent = message.data(using: .utf8)
         
-        self.tcp.conn.send(content: requestContent, completion: self.tcp.sendCompletion)
+        var tcpConnection = self.tcp.conn
+        
+        // if music mode has been established, all TCP commands are sent to the new connection without limit
+        if let musicModeState = self.state.musicMode, let musicTCPConn = self.musicModeTCP?.conn {
+            if musicModeState == true {
+                tcpConnection = musicTCPConn
+            }
+        }
+        
+        tcpConnection.send(content: requestContent, completion: self.tcp.sendCompletion)
         
     } // Light.communicate()
     

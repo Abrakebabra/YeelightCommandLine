@@ -31,7 +31,7 @@ while runProgram == true {
     switch input {
     case "on":
         do {
-            let message = try Method.set_power(.on, .sudden).string()
+            let message = try Method.set_power(power: .on, effect: .sudden).string()
             controller.lights["0x0000000007e71ffd"]?.communicate(message)
         }
         catch let error {
@@ -40,7 +40,7 @@ while runProgram == true {
         
     case "off":
         do {
-            let message = try Method.set_power(.off, .sudden).string()
+            let message = try Method.set_power(power: .off, effect: .sudden).string()
             controller.lights["0x0000000007e71ffd"]?.communicate(message)
         }
         catch let error {
@@ -50,10 +50,10 @@ while runProgram == true {
     case "flow":
         do {
             var flowExpressions = Method.set_colorFlow.CreateExpressions()
-            try flowExpressions.addState(.rgb(value: 5, bright_val: 100, duration: 5000))
-            try flowExpressions.addState(.rgb(value: 30000, bright_val: 100, duration: 2000))
-            try flowExpressions.addState(.rgb(value: 160000, bright_val: 100, duration: 4000))
-            try flowExpressions.addState(.rgb(value: 300000, bright_val: 100, duration: 3000))
+            try flowExpressions.addState(expression: .rgb(value: 5, bright_val: 100, duration: 5000))
+            try flowExpressions.addState(expression: .rgb(value: 30000, bright_val: 100, duration: 2000))
+            try flowExpressions.addState(expression: .rgb(value: 160000, bright_val: 100, duration: 4000))
+            try flowExpressions.addState(expression: .rgb(value: 300000, bright_val: 100, duration: 3000))
             
             let message = try Method.set_colorFlow(.finite(count: 8), .returnPrevious, flowExpressions).string()
             controller.lights["0x0000000007e71ffd"]?.communicate(message)
@@ -65,7 +65,7 @@ while runProgram == true {
     case "allOn":
         for (_, value) in controller.lights {
             do {
-                let message = try Method.set_power(.on, .sudden, 30).string()
+                let message = try Method.set_power(power: .on, effect: .sudden, duration: 30).string()
                 value.communicate(message)
             }
             catch let error {
@@ -76,7 +76,7 @@ while runProgram == true {
     case "allOff":
         for (_, value) in controller.lights {
             do {
-                let message = try Method.set_power(.off, .sudden, 30).string()
+                let message = try Method.set_power(power: .off, effect: .sudden, duration: 30).string()
                 value.communicate(message)
             }
             catch let error {

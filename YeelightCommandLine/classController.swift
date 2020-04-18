@@ -171,14 +171,14 @@ public class UDPConnection: Connection {
         self.conn.send(content: UDPConnection.searchBytes, completion: self.sendCompletion)
         
         // safely unwrap local port
-        guard let localPort = self.getLocalPort(fromConnection: self.conn) else {
+        guard let localHostPort = self.getHostPort(fromConnection: self.conn, endpoint: .local) else {
             print("Couldn't find local port")
             return
         }
         
         self.dispatchGroup.enter() // lock 2
         // Listen for light replies and create a new light tcp connection
-        self.listener(on: localPort, wait: mode, closure: { (dataArray) in
+        self.listener(on: localHostPort.1, wait: mode, closure: { (dataArray) in
             closure(dataArray)
         })
         

@@ -20,6 +20,11 @@ public enum UDPError: Error {
 }
 
 
+public enum ListenerError: Error {
+    case listenerFailed
+}
+
+
 public enum RequestError: Error {
     case stringToData
     case methodNotValid // not yet used

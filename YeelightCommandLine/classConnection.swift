@@ -13,8 +13,8 @@ import Network
 
 public class Connection {
     // search addr, port
-    let endpointHost: NWEndpoint.Host
-    let endpointPort: NWEndpoint.Port
+    var endpointHost: NWEndpoint.Host?
+    var endpointPort: NWEndpoint.Port?
     
     // dispatch management
     let serialQueue: DispatchQueue
@@ -33,14 +33,24 @@ public class Connection {
     // if true, will always have a recursive receiver
     var receiveLoop: Bool = false
     
+    public enum EndpointLocation {
+        case local
+        case remote
+    }
+    
     // if the status is set to "ready", the closure is able to be called
-    var statusReady: (() -> Void)?
+    var statusReady: (() throws -> Void)?
     var status: String = "unknown" {
         didSet {
             if status == "ready" {
-                statusReady?()
-            }
-        }
+                do {
+                    try statusReady?()
+                }
+                catch let error {
+                    print("status ready closure error: \(error)")
+                }
+            } // if status ready
+        } // didSet
     }
     
     // not expecting to receive multi-message data
@@ -52,6 +62,32 @@ public class Connection {
         }
     }
     
+    
+    // Get the local port opened to send
+    // Return nil if no hostPort connection found
+    func getHostPort(fromConnection conn: NWConnection, endpoint: EndpointLocation) -> (NWEndpoint.Host, NWEndpoint.Port)? {
+        
+        let endpointLocation: NWEndpoint?
+        
+        switch endpoint {
+        case .local:
+            endpointLocation = conn.currentPath?.localEndpoint
+        case .remote:
+            endpointLocation = conn.currentPath?.remoteEndpoint
+        }
+        
+        // safely unwrap
+        if let unwrappedEndpoint = endpointLocation {
+            switch unwrappedEndpoint {
+            case .hostPort(let host, let port):
+                return (host, port)
+            default:
+                return nil
+            }
+        } else {
+            return nil
+        }
+    } // Connection.getHostPort()
     
     
     // handles the receiving from tcp conn with light
@@ -65,7 +101,7 @@ public class Connection {
             
             if error != nil {
                 self.receiveLoop = false
-                print("\(self.endpointHost):  \(error.debugDescription)")
+                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"):  \(error.debugDescription)")
                 return
             }
             
@@ -77,22 +113,11 @@ public class Connection {
             }
             
         } // conn.receive closure
-    } // Light.receiveAndUpdateState()
+    } // Connection.receiveRecursively()
     
     
-    
-    init(host: NWEndpoint.Host, port: NWEndpoint.Port, serialQueueLabel: String, connType: NWParameters, receiveLoop: Bool) {
-        
-        self.endpointHost = host
-        self.endpointPort = port
-        self.serialQueue = DispatchQueue(label: serialQueueLabel)
-        
-        // create initial connection
-        self.conn = NWConnection(host: self.endpointHost, port: self.endpointPort, using: connType)
-        
-        // start connection
-        self.conn.start(queue: self.serialQueue)
-        
+    // separated so that init overrides don't need to include all this again
+    func stateUpdateHandler() {
         self.conn.stateUpdateHandler = { (newState) in
             switch(newState) {
             case .setup:
@@ -101,22 +126,42 @@ public class Connection {
                 self.status = "preparing"
             case .ready:
                 self.status = "ready"
-                print("\(self.endpointHost.debugDescription): \(self.endpointPort.debugDescription) ready")
+                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port") ready")
             case .waiting(let error):
                 self.status = "waiting"
-                print("\(self.endpointHost.debugDescription): \(self.endpointPort.debugDescription) waiting with error: \(error.debugDescription)")
+                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port") waiting with error: \(error.debugDescription)")
             case .failed(let error):
                 self.status = "failed"
-                print("\(self.endpointHost.debugDescription): \(self.endpointPort.debugDescription), connection failed with error: \(error.debugDescription)")
+                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port"), connection failed with error: \(error.debugDescription)")
             case .cancelled:
                 self.status = "cancelled"
-                print("\(self.endpointHost.debugDescription): \(self.endpointPort.debugDescription) connection cancelled")
+                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port") connection cancelled")
             @unknown default:
                 // recommended in case of future changes
                 self.status = "unknown"
-                print("Unknown status for \(self.endpointHost.debugDescription)")
+                print("Unknown status for \(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port")")
             } // switch
-        } // stateUpdateHandler
+        }
+    } // stateUpdateHandler()
+    
+    
+    // init new connection
+    init(host: NWEndpoint.Host, port: NWEndpoint.Port, serialQueueLabel: String, connType: NWParameters, receiveLoop: Bool) {
+        
+        self.endpointHost = host
+        self.endpointPort = port
+        
+        // label the queue
+        self.serialQueue = DispatchQueue(label: serialQueueLabel)
+        
+         // create initial connection
+        self.conn = NWConnection(host: host, port: port, using: connType)
+        
+        // start connection
+        self.conn.start(queue: self.serialQueue)
+        
+        // start state update handler
+        self.stateUpdateHandler()
         
         // actively receive messages received and set up new receiver
         if receiveLoop == true {
@@ -126,19 +171,43 @@ public class Connection {
     } // Connection.init()
     
     
-    // Get the local port opened to send
-    // Return nil if no hostPort connection found
-    func getLocalPort(fromConnection conn: NWConnection) -> NWEndpoint.Port? {
-        if let localEndpoint: NWEndpoint = conn.currentPath?.localEndpoint {
-            switch localEndpoint {
-            case .hostPort(_, let port):
-                return port
-            default:
-                return nil
+    // init with existing connection
+    init(existingConn: NWConnection, existingQueue: DispatchQueue, receiveLoop: Bool) {
+        
+        // save reference to the existing queue
+        self.serialQueue = existingQueue
+        
+        // save reference to the existing connection
+        self.conn = existingConn
+        
+        // start connection
+        self.conn.start(queue: self.serialQueue)
+        
+        // start state update handler
+        self.stateUpdateHandler()
+        
+        // once connection is ready, save local host and port
+        self.statusReady = {
+            let remoteHostPort = self.getHostPort(fromConnection: self.conn, endpoint: .remote)
+            
+            if let remoteHostPort = remoteHostPort {
+                self.endpointHost = remoteHostPort.0
+                self.endpointPort = remoteHostPort.1
+            } else {
+                print("Can't establish remote host and port")
             }
-        } else {
-            return nil
         }
-    } // Connection.getLocalPort()
+        
+
+        // actively receive messages received and set up new receiver
+        if receiveLoop == true {
+            self.receiveRecursively()
+        }
+    }
+    
+    
+    
+    
+    
     
 } // class Connection

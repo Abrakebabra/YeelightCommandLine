@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import Network // for set_music listener
 
 // ==========================================================================
 // CONTENTS =================================================================
@@ -42,7 +43,7 @@ public enum Enums {
     }
     
     /// power on or off
-    public enum PowerState {
+    public enum OnOffState {
         case on
         case off
         
@@ -67,6 +68,8 @@ public enum Enums {
             switch self {
             case .infinite:
                 return 0
+                
+            /// how many state changes - must be equal or higher than number of states.
             case .finite(let count):
                 return count
             }
@@ -81,10 +84,15 @@ public enum Enums {
         
         public func int() -> Int {
             switch self {
+                
+            /// return to previous setting
             case .returnPrevious:
                 return 0
+                
+            /// finish flow and remain on that setting
             case .stayCurrent:
                 return 1
+            
             case .turnOff:
                 return 2
             }
@@ -103,18 +111,21 @@ public enum Enums {
         public func params() throws -> [Int] {
             switch self {
                 
+            /// rgb range: 1-16777215, color_temp range: 1700-6500, brightness range: 1-100, duration min = 50ms (as default).  No hsv mode.
             case .rgb(let value, let bright_val, let duration):
                 try Method().valueInRange("rgb_value", value, min: 1, max: 16777215)
                 try Method().valueInRange("bright_val", bright_val, min: 1, max: 100)
                 try Method().valueInRange("duration", duration, min: 50)
                 return [duration, 1, value, bright_val]
                 
+            /// color_temp range: 1700-6500, brightness range: 1-100, duration min = 50ms (as default)
             case .color_temp(let value, let bright_val, let duration):
                 try Method().valueInRange("color_temp", value, min: 1700, max: 6500)
                 try Method().valueInRange("bright_val", bright_val, min: 1, max: 100)
                 try Method().valueInRange("duration", duration, min: 50)
                 return [duration, 2, value, bright_val]
                 
+            /// duration min = 50ms (as default)
             case .wait(let duration):
                 try Method().valueInRange("duration", duration, min: 50)
                 return [duration, 7, 0, 0]
@@ -186,7 +197,8 @@ public struct Method {
         public let p2_effect: String
         public let p3_duration: Int
         
-        init(_ color_temp: Int, _ effect: Enums.Effect, _ duration: Int = 30) throws {
+        /// temp range: 1700-6500, duration min = 30ms (as default)
+        init(color_temp: Int, effect: Enums.Effect, duration: Int = 30) throws {
             try Method().valueInRange("color_temp", color_temp, min: 1700, max: 6500)
             try Method().valueInRange("duration", duration, min: 30)
             self.p1_ct_value = color_temp
@@ -194,6 +206,7 @@ public struct Method {
             self.p3_duration = duration
         }
         
+        /// output as string in correct format for the light
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_ct_value, self.p2_effect, self.p3_duration)
         }
@@ -206,7 +219,8 @@ public struct Method {
         public let p2_effect: String
         public let p3_duration: Int
         
-        init(_ rgb_value: Int, _ effect: Enums.Effect, _ duration: Int = 30) throws {
+        /// rgb range: 1-16777215, duration min = 30ms (as default)
+        init(rgb_value: Int, effect: Enums.Effect, duration: Int = 30) throws {
             try Method().valueInRange("rgb_value", rgb_value, min: 1, max: 16777215)
             try Method().valueInRange("duration", duration, min: 30)
             self.p1_rgb_value = rgb_value
@@ -214,6 +228,7 @@ public struct Method {
             self.p3_duration = duration
         }
         
+        /// output as string in correct format for the light
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_rgb_value, self.p2_effect, self.p3_duration)
         }
@@ -226,7 +241,8 @@ public struct Method {
         public let p3_effect: String
         public let p4_duration: Int
         
-        init(_ hue_value: Int, sat_value: Int, _ effect: Enums.Effect, _ duration: Int = 30) throws {
+        /// hue range: 0-359, sat range: 0-100, duration min = 30ms (as default)
+        init(hue_value: Int, sat_value: Int, effect: Enums.Effect, _ duration: Int = 30) throws {
             try Method().valueInRange("hue_value", hue_value, min: 0, max: 359)
             try Method().valueInRange("sat_value", sat_value, min: 0, max: 100)
             try Method().valueInRange("duration", duration, min: 30)
@@ -236,6 +252,7 @@ public struct Method {
             self.p4_duration = duration
         }
         
+        /// output as string in correct format for the light
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_hue_value, self.p2_sat_value, self.p3_effect, self.p4_duration)
         }
@@ -247,7 +264,8 @@ public struct Method {
         public let p2_effect: String
         public let p3_duration: Int
         
-        init(_ bright_value: Int, _ effect: Enums.Effect, _ duration: Int = 30) throws {
+        /// brightness range: 1-100, duration min = 30ms (as default)
+        init(bright_value: Int, effect: Enums.Effect, duration: Int = 30) throws {
             try Method().valueInRange("bright_value", bright_value, min: 1, max: 100)
             try Method().valueInRange("duration", duration, min: 30)
             self.p1_bright_value = bright_value
@@ -255,6 +273,7 @@ public struct Method {
             self.p3_duration = duration
         }
         
+        /// output as string in correct format for the light
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_bright_value, self.p2_effect, self.p3_duration)
         }
@@ -267,14 +286,15 @@ public struct Method {
         public let p3_duration: Int
         // has optional 4th parameter to switch to mode but excluding
         
-        
-        init(_ power: Enums.PowerState, _ effect: Enums.Effect, _ duration: Int = 30) throws {
+        /// duration min = 30ms (as default)
+        init(power: Enums.OnOffState, effect: Enums.Effect, duration: Int = 30) throws {
             try Method().valueInRange("duration", duration, min: 30)
             self.p1_power = power.string()
             self.p2_effect = effect.string()
             self.p3_duration = duration
         }
         
+        /// output as string in correct format for the light
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_power, self.p2_effect, self.p3_duration)
         }
@@ -285,16 +305,17 @@ public struct Method {
     
     public struct set_colorFlow {
         
+        /// create a saved array holding all added states.  addState() subsequently to append to array. This object is passed directly as a parameter to set_colorFlow.init()
         public struct CreateExpressions {
             public var allExpressions: [Int] = []
             
-            // add a new flow state
-            public mutating func addState(_ expression: Enums.setState) throws {
+            /// append a new flow state to the CreateExpressions array.  rgb range: 1-16777215, color_temp range: 1700-6500, hue range: 0-359, sat range: 0-100, brightness range: 1-100, duration min = 30ms (as default)
+            public mutating func addState(expression: Enums.setState) throws {
                 try self.allExpressions.append(contentsOf: expression.params())
                 
             }
             
-            // output this to a clean string "1, 2, 3, 4, 5" with no square parenthesis
+            // output this to a clean string "1, 2, 3, 4" with no square parenthesis
             fileprivate func output() -> (Int, String) {
                 var tupleString: String = ""
                 
@@ -321,6 +342,7 @@ public struct Method {
         public let p2_action: Int
         public let p3_flow_expression: String // custom type to ensure correct usage?
         
+        /// CreateExpressions object required with subsequent addState().  Number of state changes must be equal or higher than number of state changes.
         init(_ change_count: Enums.numOfStateChanges, _ onCompletion: Enums.onCompletion, _ flow_expression: Method.set_colorFlow.CreateExpressions) throws {
             
             let expressions: (Int, String) = flow_expression.output()
@@ -334,6 +356,7 @@ public struct Method {
             }
         }
         
+        /// output as string in correct format for the light
         public func string() -> String {
             return Method().methodParamString(method, p1_count, p2_action, p3_flow_expression)
         }
@@ -342,9 +365,12 @@ public struct Method {
     public struct set_colorFlowStop {
         public let method: String = "stop_cf"
         
+        /// takes no parameters.
         init(_ takesNoParametersLeaveEmpty: Any? = nil) {
             // Takes an empty array.
         }
+        
+        /// output as string in correct format for the light
         public func string() -> String {
             return Method().methodParamString(self.method)
         }
@@ -352,7 +378,7 @@ public struct Method {
     
     
     public struct set_scene {
-        // leaving out color flow because it doesn't benefit from having an additional method through set_scene whereas rgb, hsv and ct can adjust brightness in a single command rather than separately.
+        // leaving out color flow because it doesn't benefit from having an additional method through set_scene whereas rgb and ct can adjust brightness in a single command rather than separately.
         // Might review color flow in the future (10 April 2020).
         
         public struct rgb_bright {
@@ -361,6 +387,7 @@ public struct Method {
             public let p2_rgb: Int
             public let p3_bright: Int
             
+            /// rgb range: 1-16777215, brightness range: 1-100
             init(_ rgb_value: Int, _ bright_value: Int) throws {
                 try Method().valueInRange("rgb_value", rgb_value, min: 1, max: 16777215)
                 try Method().valueInRange("bright_value", bright_value, min: 1, max: 100)
@@ -380,6 +407,7 @@ public struct Method {
             public let p3_sat: Int
             public let p4_bright: Int
             
+            /// hue range: 0-359, sat range: 0-100, brightness range: 1-100
             init(_ hue_value: Int, _ sat_value: Int, _ bright_value: Int) throws {
                 try Method().valueInRange("hue_value", hue_value, min: 0, max: 359)
                 try Method().valueInRange("sat_value", sat_value, min: 0, max: 100)
@@ -389,6 +417,7 @@ public struct Method {
                 self.p4_bright = bright_value
             }
             
+            /// output as string in correct format for the light
             public func string() -> String {
                 return Method().methodParamString(self.method, self.p1_method, self.p2_hue, self.p3_sat, self.p4_bright)
             }
@@ -400,6 +429,7 @@ public struct Method {
             public let p2_color_temp: Int
             public let p3_bright: Int
             
+            /// color_temp range: 1700-6500, brightness range: 1-100
             init(_ color_temp: Int, _ bright_value: Int) throws {
                 try Method().valueInRange("color_temp", color_temp, min: 1700, max: 6500)
                 try Method().valueInRange("bright_value", bright_value, min: 1, max: 100)
@@ -407,6 +437,7 @@ public struct Method {
                 self.p3_bright = bright_value
             }
             
+            /// output as string in correct format for the light
             public func string() -> String {
                 return Method().methodParamString(self.method, self.p1_method, self.p2_color_temp, self.p3_bright)
             }
@@ -418,7 +449,96 @@ public struct Method {
     // no cron_del method
     // no set_adjust method
     
+    /// new TCP connection with unlimited commands and no property update response
     public struct set_music {
+        /*
+         "action" the action of set_music command. The valid value can be:
+            0: turn off music mode.
+            1: turn on music mode.
+         "host" the IP address of the music server.
+         "port" the TCP port music application is listening on.
+         
+         Request:
+         {"id":1,"method":"set_music","params":[1, “192.168.0.2", 54321]}
+         {"id":1,"method":"set_music","params":[0]}
+         
+         Response:
+         {"id":1, "result":["ok"]}
+         
+         When control device wants to start music mode:
+          - it needs start a TCP server firstly
+          - then call “set_music” command to let the device know the IP and Port of the TCP listen socket.
+          - After received the command, LED device will try to connect the specified peer address.
+          - control device should then send all supported commands through this channel without limit to simulate any music effect.
+          - The control device can stop music mode by explicitly send a stop command or just by closing the socket.
+         
+         TO DO:
+         
+         Build method for sending params
+         Build listener and handlers
+         
+          - Does it need a listener?  Or perhaps they used incorrect term.
+          - Set up listener, start and just use listener.port after it starts
+          - save that port - use an escaping closure
+          - send message to light notifying local ip and listener port (add IP to existing function)
+          - save that one new connection
+          - create new tcp connection with that
+         
+         
+         
+         Listener:
+          - Save the connection in a closure and 
+          - Receive message and see what is received - no need because receive loop will handle that - but should also receive first message and see what it says
+         
+        */
+        
+        public let method: String = "set_music"
+        public let p1_action: Int
+        public var p2_host: String?
+        public var p3_port: Int?
+        
+        
+        func listen(_ closure:@escaping (NWConnection, DispatchQueue) -> (NWConnection, DispatchQueue)) throws {
+            let serialQueue = DispatchQueue(label: "TCP Queue")
+            guard let listener = try? NWListener(using: .tcp) else {
+                throw ListenerError.listenerFailed
+            }
+            listener.newConnectionHandler = { (newConn) in
+                // save reference to connection
+                // save reference to serialQueue
+            }
+            
+            listener.start(queue: serialQueue)
+            
+            
+           
+            
+            return
+        }
+        
+        
+        init(turn: Enums.OnOffState) throws {
+            
+            switch turn {
+            case .on:
+                self.p1_action = 1
+            case .off:
+                self.p1_action = 0
+            }
+            
+            // there's another way...
+            try self.listen() { (newConn, newQueue) in
+                return (newConn, newQueue)
+            }
+        }
+        
+        
+        
+        /// output as string in correct format for the light
+        public func string() -> String {
+            return Method().methodParamString(self.method, self.p1_action, self.p2_host, self.p3_port)
+        }
+        
         
         
     }
@@ -432,6 +552,7 @@ public struct Method {
             self.p1_name = name
         }
         
+        /// output as string in correct format for the light
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_name)
         }

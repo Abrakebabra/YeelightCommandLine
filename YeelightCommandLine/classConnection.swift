@@ -12,6 +12,10 @@ import Network
 
 
 public class Connection {
+    // local addr, port
+    var localHost: NWEndpoint.Host?
+    var localPort: NWEndpoint.Port? // not used, but here for completion
+    
     // remote addr, port
     var remoteHost: NWEndpoint.Host?
     var remotePort: NWEndpoint.Port?
@@ -38,6 +42,7 @@ public class Connection {
         case remote
     }
     
+    
     // if the status is set to "ready", the closure is able to be called
     var statusReady: (() throws -> Void)?
     var status: String = "unknown" {
@@ -51,7 +56,8 @@ public class Connection {
                 }
             } // if status ready
         } // didSet
-    }
+    } // status
+    
     
     // not expecting to receive multi-message data
     // each time newData is set, the closure will execute anywhere it is called, able to access the data
@@ -95,27 +101,19 @@ public class Connection {
         self.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, error) in
             // Data?, NWConnection.ContentContext?, Bool, NWError?
             
-            if self.receiveLoop == false {
-                return
-            }
             
             if error != nil {
-                self.receiveLoop = false
                 var host = "Unknown"
                 if let unwrappedHost = self.remoteHost {
                     host = String(reflecting: unwrappedHost)
                 }
-                print("\(host):  \(String(reflecting: error))")
+                print("Conn receive error: \(host):  \(String(reflecting: error))")
                 return
-            }
-            
-            self.newData = data
-            
-            // recurse
-            if self.receiveLoop == true {
+                
+            } else {
+                self.newData = data
                 self.receiveRecursively()
             }
-            
         } // conn.receive closure
     } // Connection.receiveRecursively()
     
@@ -178,16 +176,33 @@ public class Connection {
         // start state update handler
         self.stateUpdateHandler()
         
-        // actively receive messages received and set up new receiver
-        if receiveLoop == true {
-            self.receiveRecursively()
+        // once connection is ready, save local host and port
+        self.statusReady = {
+            // used for establishing music mode tcp connections so code to find local port is cleaner
+            let localHostPort = self.getHostPort(endpoint: .local)
+            if let localHostPort = localHostPort {
+                self.localHost = localHostPort.0
+                self.localPort = localHostPort.1
+            } else {
+                print("Can't establish local host and port")
+            }
+            
+            // actively receive messages received and set up new receiver
+            if receiveLoop == true {
+                self.receiveRecursively()
+            }
+            
         }
         
     } // Connection.init()
     
     
     // init with existing connection
-    init(existingConn: NWConnection, existingQueue: DispatchQueue, receiveLoop: Bool) {
+    init(existingConn: NWConnection, existingQueue: DispatchQueue, remoteHost: NWEndpoint.Host, remotePort: NWEndpoint.Port, receiveLoop: Bool) {
+        
+        // for identification purposes
+        self.remoteHost = remoteHost
+        self.remotePort = remotePort
         
         // save reference to the existing queue
         self.serialQueue = existingQueue
@@ -203,21 +218,24 @@ public class Connection {
         
         // once connection is ready, save local host and port
         self.statusReady = {
-            let remoteHostPort = self.getHostPort(endpoint: .remote)
-            
-            if let remoteHostPort = remoteHostPort {
-                self.remoteHost = remoteHostPort.0
-                self.remotePort = remoteHostPort.1
+            // not required but for completeness
+            let localHostPort = self.getHostPort(endpoint: .local)
+            if let localHostPort = localHostPort {
+                self.localHost = localHostPort.0
+                self.localPort = localHostPort.1
             } else {
-                print("Can't establish remote host and port")
+                print("Can't establish local host and port")
             }
+            
+            // actively receive messages received and set up new receiver
+            if receiveLoop == true {
+                self.receiveRecursively()
+            }
+            
         }
         
 
-        // actively receive messages received and set up new receiver
-        if receiveLoop == true {
-            self.receiveRecursively()
-        }
+        
     }
     
     

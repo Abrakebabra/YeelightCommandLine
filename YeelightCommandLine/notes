@@ -52,7 +52,8 @@ perhaps ping the lights periodically to prevent them from sleeping using a get_p
 separate out tcp component to rest of light class?
 
 
-
+Cannot be turned off while music mode is on or music mode will automatically be turned off.
+BUT... music mode can be turned on while it is off.
 
 
 Fix:

@@ -86,19 +86,29 @@ while runProgram == true {
     
     case "musicOn":
         do {
-            let localEndpoint = controller.lights["0x0000000007e71ffd"]?.tcp.getHostPort(endpoint: .local)
+            guard let localEndpoint = controller.lights["0x0000000007e71ffd"]?.tcp.getHostPort(endpoint: .local) else {
+                throw ConnectionError.endpointNotFound
+            }
+            let localIP = localEndpoint.0
+            print("LOCAL IP: \(localIP)")
             let targetIP = controller.lights["0x0000000007e71ffd"]?.tcp.remoteHost
             
-            if let localEndpoint = localEndpoint, let targetIP = targetIP {
-                let musicMode = try Method.set_music(turn: .on, ownIP: localEndpoint.0, targetIP: targetIP)
-                let message = try musicMode.string()
-                
-                controller.lights["0x0000000007e71ffd"]?.communicate(message)
-                
-                controller.lights["0x0000000007e71ffd"]?.musicModeTCP =
-                    try musicMode.savedConnection()
-                controller.lights["0x0000000007e71ffd"]?.state.musicMode = true
-            }
+            
+            // set up object
+            // set up listener
+                // hold listener to wait - different thread
+            // output string
+            
+            
+            let musicMode = try Method.set_music(state: .on(localIP: localIP, targetIP: targetIP))
+            print("MusicMode instance created")
+            let message = musicMode.string()
+            print("MusicMode message created")
+            
+            controller.lights["0x0000000007e71ffd"]?.communicate(message)
+            
+            controller.lights["0x0000000007e71ffd"]?.musicModeTCP = musicMode.savedConnection()
+            controller.lights["0x0000000007e71ffd"]?.state.musicMode = true
             
         }
         catch let error {
@@ -107,22 +117,40 @@ while runProgram == true {
         
     case "musicOff":
         do {
-            let localEndpoint = controller.lights["0x0000000007e71ffd"]?.tcp.getHostPort(endpoint: .local)
-            let targetIP = controller.lights["0x0000000007e71ffd"]?.tcp.remoteHost
+            let musicMode = try Method.set_music(state: .off)
+            let message = musicMode.string()
             
-            if let localEndpoint = localEndpoint, let targetIP = targetIP {
-                let musicMode = try Method.set_music(turn: .off, ownIP: localEndpoint.0, targetIP: targetIP)
-                let message = try musicMode.string()
-                
-                controller.lights["0x0000000007e71ffd"]?.communicate(message)
-                controller.lights["0x0000000007e71ffd"]?.state.musicMode = false
-            }
+            controller.lights["0x0000000007e71ffd"]?.state.musicMode = false
+            controller.lights["0x0000000007e71ffd"]?.communicate(message)
+            
+            // MUST CANCEL AND DEINIT
+            controller.lights["0x0000000007e71ffd"]?.musicModeTCP?.conn.cancel()
+            sleep(1)
+            controller.lights["0x0000000007e71ffd"]?.musicModeTCP = nil
+            
             
         }
         catch let error {
             print(error)
         }
  
+    case "musicTest":
+        var hsv = 190
+        
+        for _ in 0..<100 {
+            
+            do {
+                let message = try Method.set_hsv(hue_value: hsv, sat_value: 50, effect: .sudden).string()
+                controller.lights["0x0000000007e71ffd"]?.communicate(message)
+            }
+            catch let error {
+                print(error)
+            }
+            usleep(100000)
+            hsv -= 2
+        }
+        
+        
     case "discover":
         controller.discover(wait: .lightCount(6))
         

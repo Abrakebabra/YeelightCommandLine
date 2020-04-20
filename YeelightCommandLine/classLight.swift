@@ -116,7 +116,11 @@ public class Light {
     
     public var state: State
     public var tcp: Connection
-    public var musicModeTCP: Connection?
+    public var musicModeTCP: Connection? {
+        didSet {
+            print("Light instance music mode set!")
+        }
+    }
     public var info: Info
     public var requestTicket: Int = 0
     
@@ -276,7 +280,7 @@ public class Light {
             for (key, value) in changedState {
                 // switch function for updating state
                 try self.updateState(key, value)
-                print("\(self.info.id) updating '\(key)' to '\(value)'")
+                print("\(self.info.id) updating '\(key)' to '\(value)'") // DEBUG
             }
             
         } else {
@@ -359,6 +363,23 @@ public class Light {
         if let musicModeState = self.state.musicMode, let musicTCPConn = self.musicModeTCP?.conn {
             if musicModeState == true {
                 tcpConnection = musicTCPConn
+                print("music TCP channel used")
+            }
+        }
+        
+        if message == """
+            {"id":1,"method":"set_music","params":[0]}
+            """ {
+                tcpConnection = self.tcp.conn
+        }
+                
+        
+        if let unwrappedEndpoint = tcpConnection.currentPath?.remoteEndpoint {
+            switch unwrappedEndpoint {
+            case .hostPort(let host, let port):
+                print("Sent to host: \(host) and port: \(port)")
+            default:
+                return
             }
         }
         

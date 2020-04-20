@@ -43,7 +43,7 @@ public enum Enums {
     }
     
     /// power on or off
-    public enum OnOffState {
+    public enum PowerState {
         case on
         case off
         
@@ -56,6 +56,13 @@ public enum Enums {
             }
         }
     }
+    
+    /// music mode on or off
+    public enum MusicState {
+        case on(localIP: NWEndpoint.Host?, targetIP: NWEndpoint.Host?)
+        case off
+    }
+    
     
     // start_cf
     // don't forget to add a check later to ensure that the number of state changes are at least equal to the number of states added
@@ -287,7 +294,7 @@ public struct Method {
         // has optional 4th parameter to switch to mode but excluding
         
         /// duration min = 30ms (as default)
-        init(power: Enums.OnOffState, effect: Enums.Effect, duration: Int = 30) throws {
+        init(power: Enums.PowerState, effect: Enums.Effect, duration: Int = 30) throws {
             try Method().valueInRange("duration", duration, min: 30)
             self.p1_power = power.string()
             self.p2_effect = effect.string()
@@ -494,28 +501,38 @@ public struct Method {
         
         private let method: String = "set_music"
         private let p1_action: Int
-        private var p2_listenerHost: String
+        private var p2_listenerHost: String?
         private var p3_listenerPort: Int?
-        private var musicModeConn: Connection?
         
+        private var musicModeConn: Connection? {
+            didSet {
+                print("Got music connection!")
+            }
+        }
+        
+        private var listener: NWListener?
+        private let controlQueue = DispatchQueue(label: "Control Queue")
+        private let controlGroup = DispatchGroup()
+        private let controlGroup2 = DispatchGroup()
         
         /// closure (newConn: Connection, host: String, port: Int)
-        func listen(targetIP: NWEndpoint.Host, _ closure:@escaping (Int) -> Void) throws -> Void {
+        func listen(targetIP: NWEndpoint.Host?, _ closure:@escaping (Int) -> Void) throws -> Void {
+            
+            // control flow for function
+            let listenerGroup = DispatchGroup()
             
             // queue
             let serialQueue = DispatchQueue(label: "TCP Queue")
             
-            // setup listener
-            guard let listener = try? NWListener(using: .tcp) else {
+            // setup listener in class to be cancelled via another function
+            self.listener = try? NWListener(using: .tcp)
+            
+            // was listener successfully set up?
+            guard let listener = self.listener else {
                 throw ListenerError.listenerFailed
             }
             
-            if let listenerPort = listener.port?.rawValue {
-                closure(Int(listenerPort))
-            }
             
-            // control flow for function
-            let listenerGroup = DispatchGroup()
             
             
             listener.newConnectionHandler = { (newConn) in
@@ -523,14 +540,18 @@ public struct Method {
                 print("music listener found") // DEBUG
                 
                 
-                if let remoteEnd = newConn.currentPath?.remoteEndpoint {
+                if let remoteEnd = newConn.currentPath?.remoteEndpoint,
+                    let targetIP = targetIP {
                     
                     switch remoteEnd {
-                    case .hostPort(let host, _):
-                        
+                    case .hostPort(let host, let port):
+                        print("REMOTE END HOST: \(host)")
+                        print("TARGET IP: \(targetIP)")
                         if host == targetIP {
+                            print("HOST = IP")
                             
-                            self.musicModeConn = Connection(existingConn: newConn, existingQueue: serialQueue, receiveLoop: true)
+                            self.musicModeConn = Connection(existingConn: newConn, existingQueue: serialQueue, remoteHost: host, remotePort: port, receiveLoop: true)
+                            self.controlGroup2.leave()
                             listenerGroup.leave()
                         }
                         
@@ -539,6 +560,27 @@ public struct Method {
                     } // switch statement
                 } // if remote end found
             } // listener
+            
+            
+            listener.stateUpdateHandler = { (newState) in
+                switch newState {
+                case .setup:
+                    return
+                case .ready:
+                    // get port and allow it to be accessed in closure to be used as parameter in command to light
+                    if let listenerPort = listener.port?.rawValue {
+                        closure(Int(listenerPort))
+                    }
+                case .cancelled:
+                    print("listener cancelled")
+                case .waiting(let error):
+                    print("listener waiting error: \(error)")
+                case .failed(let error):
+                    print("listener failed error: \(error)")
+                @unknown default:
+                    return
+                }
+            }
             
             
             listenerGroup.enter()
@@ -574,42 +616,58 @@ public struct Method {
         */
         
         
-        init(turn: Enums.OnOffState, ownIP: NWEndpoint.Host, targetIP: NWEndpoint.Host) throws {
+        init(state: Enums.MusicState) throws {
             
-            switch turn {
-            case .on:
+            switch state {
+            case .on(let localIP, let targetIP):
                 self.p1_action = 1
-                self.p2_listenerHost = String(reflecting: ownIP)
-                try listen(targetIP: targetIP, { (port) in
-                    self.p3_listenerPort = port
-                })
+                if let localIP = localIP {
+                    self.p2_listenerHost = String(reflecting: localIP)
+                } else {
+                    self.p2_listenerHost = "Not found"
+                }
+                
+                
+                self.controlGroup.enter()
+                self.controlGroup2.enter()
+                self.controlQueue.async {
+                    do {
+                        try self.listen(targetIP: targetIP, { (port) in
+                            self.p3_listenerPort = port
+                            print("listener port found")
+                            self.controlGroup.leave() // control unlock
+                        })
+                    }
+                    catch let error {
+                        print(error)
+                        self.controlGroup.leave() // control unlock
+                    }
+                }
                 
             case .off:
                 self.p1_action = 0
-                self.p2_listenerHost = ""
-                self.p3_listenerPort = 0
             }
             
+            self.controlGroup.wait() // control lock
             print("init finished")
         }
         
         
-        public func savedConnection() throws -> Connection {
-            guard let conn = self.musicModeConn else {
-                throw MethodError.connectionNotMade
+        public func savedConnection() -> Connection? {
+            print("CG2 waiting")
+            self.controlGroup2.wait()
+            if self.musicModeConn == nil {
+                print("no music conn in method")
             }
-            return conn
+            return self.musicModeConn
         }
         
         
         
         /// output as string in correct format for the light
-        public func string() throws -> String {
-            guard let listenerPort = self.p3_listenerPort else {
-                throw MethodError.localPortNotFound
-            }
+        public func string() -> String {
             // the listener with a DispatchGroup lock should stop the init from returning before it finds the
-            return Method().methodParamString(self.method, self.p1_action, self.p2_listenerHost, listenerPort)
+            return Method().methodParamString(self.method, self.p1_action, self.p2_listenerHost, self.p3_listenerPort)
         }
         
         

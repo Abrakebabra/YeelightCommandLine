@@ -192,10 +192,10 @@ public struct Method {
     
     
     public struct set_colorTemp {
-        public let method: String = "set_ct_abx"
-        public let p1_ct_value: Int
-        public let p2_effect: String
-        public let p3_duration: Int
+        private let method: String = "set_ct_abx"
+        private let p1_ct_value: Int
+        private let p2_effect: String
+        private let p3_duration: Int
         
         /// temp range: 1700-6500, duration min = 30ms (as default)
         init(color_temp: Int, effect: Enums.Effect, duration: Int = 30) throws {
@@ -214,10 +214,10 @@ public struct Method {
     
     
     public struct set_rgb {
-        public let method = "set_rgb"
-        public let p1_rgb_value: Int
-        public let p2_effect: String
-        public let p3_duration: Int
+        private let method = "set_rgb"
+        private let p1_rgb_value: Int
+        private let p2_effect: String
+        private let p3_duration: Int
         
         /// rgb range: 1-16777215, duration min = 30ms (as default)
         init(rgb_value: Int, effect: Enums.Effect, duration: Int = 30) throws {
@@ -235,11 +235,11 @@ public struct Method {
     }
     
     public struct set_hsv {
-        public let method: String = "set_hsv"
-        public let p1_hue_value: Int
-        public let p2_sat_value: Int
-        public let p3_effect: String
-        public let p4_duration: Int
+        private let method: String = "set_hsv"
+        private let p1_hue_value: Int
+        private let p2_sat_value: Int
+        private let p3_effect: String
+        private let p4_duration: Int
         
         /// hue range: 0-359, sat range: 0-100, duration min = 30ms (as default)
         init(hue_value: Int, sat_value: Int, effect: Enums.Effect, _ duration: Int = 30) throws {
@@ -259,10 +259,10 @@ public struct Method {
     }
     
     public struct set_bright {
-        public let method: String = "set_bright"
-        public let p1_bright_value: Int
-        public let p2_effect: String
-        public let p3_duration: Int
+        private let method: String = "set_bright"
+        private let p1_bright_value: Int
+        private let p2_effect: String
+        private let p3_duration: Int
         
         /// brightness range: 1-100, duration min = 30ms (as default)
         init(bright_value: Int, effect: Enums.Effect, duration: Int = 30) throws {
@@ -280,10 +280,10 @@ public struct Method {
     }
     
     public struct set_power {
-        public let method: String = "set_power"
-        public let p1_power: String
-        public let p2_effect: String
-        public let p3_duration: Int
+        private let method: String = "set_power"
+        private let p1_power: String
+        private let p2_effect: String
+        private let p3_duration: Int
         // has optional 4th parameter to switch to mode but excluding
         
         /// duration min = 30ms (as default)
@@ -307,7 +307,7 @@ public struct Method {
         
         /// create a saved array holding all added states.  addState() subsequently to append to array. This object is passed directly as a parameter to set_colorFlow.init()
         public struct CreateExpressions {
-            public var allExpressions: [Int] = []
+            private var allExpressions: [Int] = []
             
             /// append a new flow state to the CreateExpressions array.  rgb range: 1-16777215, color_temp range: 1700-6500, hue range: 0-359, sat range: 0-100, brightness range: 1-100, duration min = 30ms (as default)
             public mutating func addState(expression: Enums.setState) throws {
@@ -337,10 +337,10 @@ public struct Method {
         
         // {"id":1, "method":"start_cf", "params":[4, 2, "1000,2,2700,100"]}
         
-        public let method: String = "start_cf"
-        public let p1_count: Int
-        public let p2_action: Int
-        public let p3_flow_expression: String // custom type to ensure correct usage?
+        private let method: String = "start_cf"
+        private let p1_count: Int
+        private let p2_action: Int
+        private let p3_flow_expression: String // custom type to ensure correct usage?
         
         /// CreateExpressions object required with subsequent addState().  Number of state changes must be equal or higher than number of state changes.
         init(_ change_count: Enums.numOfStateChanges, _ onCompletion: Enums.onCompletion, _ flow_expression: Method.set_colorFlow.CreateExpressions) throws {
@@ -363,7 +363,7 @@ public struct Method {
     }
     
     public struct set_colorFlowStop {
-        public let method: String = "stop_cf"
+        private let method: String = "stop_cf"
         
         /// takes no parameters.
         init(_ takesNoParametersLeaveEmpty: Any? = nil) {
@@ -382,10 +382,10 @@ public struct Method {
         // Might review color flow in the future (10 April 2020).
         
         public struct rgb_bright {
-            public let method: String = "set_scene"
-            public let p1_method: String = "color"
-            public let p2_rgb: Int
-            public let p3_bright: Int
+            private let method: String = "set_scene"
+            private let p1_method: String = "color"
+            private let p2_rgb: Int
+            private let p3_bright: Int
             
             /// rgb range: 1-16777215, brightness range: 1-100
             init(_ rgb_value: Int, _ bright_value: Int) throws {
@@ -401,11 +401,11 @@ public struct Method {
         }
         
         public struct hsv_bright {
-            public let method: String = "set_scene"
-            public let p1_method: String = "hsv"
-            public let p2_hue: Int
-            public let p3_sat: Int
-            public let p4_bright: Int
+            private let method: String = "set_scene"
+            private let p1_method: String = "hsv"
+            private let p2_hue: Int
+            private let p3_sat: Int
+            private let p4_bright: Int
             
             /// hue range: 0-359, sat range: 0-100, brightness range: 1-100
             init(_ hue_value: Int, _ sat_value: Int, _ bright_value: Int) throws {
@@ -424,10 +424,10 @@ public struct Method {
         }
         
         public struct color_temp_bright {
-            public let method: String = "set_scene"
-            public let p1_method: String = "ct"
-            public let p2_color_temp: Int
-            public let p3_bright: Int
+            private let method: String = "set_scene"
+            private let p1_method: String = "ct"
+            private let p2_color_temp: Int
+            private let p3_bright: Int
             
             /// color_temp range: 1700-6500, brightness range: 1-100
             init(_ color_temp: Int, _ bright_value: Int) throws {
@@ -450,7 +450,7 @@ public struct Method {
     // no set_adjust method
     
     /// new TCP connection with unlimited commands and no property update response
-    public struct set_music {
+    public class set_music {
         /*
          "action" the action of set_music command. The valid value can be:
             0: turn off music mode.
@@ -492,51 +492,124 @@ public struct Method {
          
         */
         
-        public let method: String = "set_music"
-        public let p1_action: Int
-        public var p2_host: String?
-        public var p3_port: Int?
+        private let method: String = "set_music"
+        private let p1_action: Int
+        private var p2_listenerHost: String
+        private var p3_listenerPort: Int?
+        private var musicModeConn: Connection?
         
         
-        func listen(_ closure:@escaping (NWConnection, DispatchQueue) -> (NWConnection, DispatchQueue)) throws {
+        /// closure (newConn: Connection, host: String, port: Int)
+        func listen(targetIP: NWEndpoint.Host, _ closure:@escaping (Int) -> Void) throws -> Void {
+            
+            // queue
             let serialQueue = DispatchQueue(label: "TCP Queue")
+            
+            // setup listener
             guard let listener = try? NWListener(using: .tcp) else {
                 throw ListenerError.listenerFailed
             }
-            listener.newConnectionHandler = { (newConn) in
-                // save reference to connection
-                // save reference to serialQueue
+            
+            if let listenerPort = listener.port?.rawValue {
+                closure(Int(listenerPort))
             }
             
+            // control flow for function
+            let listenerGroup = DispatchGroup()
+            
+            
+            listener.newConnectionHandler = { (newConn) in
+                
+                print("music listener found") // DEBUG
+                
+                
+                if let remoteEnd = newConn.currentPath?.remoteEndpoint {
+                    
+                    switch remoteEnd {
+                    case .hostPort(let host, _):
+                        
+                        if host == targetIP {
+                            
+                            self.musicModeConn = Connection(existingConn: newConn, existingQueue: serialQueue, receiveLoop: true)
+                            listenerGroup.leave()
+                        }
+                        
+                    default:
+                        return
+                    } // switch statement
+                } // if remote end found
+            } // listener
+            
+            
+            listenerGroup.enter()
             listener.start(queue: serialQueue)
             
+            // length of time to wait until
+            let waitTime: UInt64 = 1 // default timeout seconds
+            let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + waitTime * 1000000000)
             
-           
+            // wait 1 second to establish music TCP.  If not found, cancel listener.
+            if listenerGroup.wait(timeout: futureTime) == .timedOut {
+                print("No connection available for music TCP")
+                listener.cancel()
+                listenerGroup.leave()
+                throw ListenerError.noConnectionFound
+            }
             
-            return
+            // both cases
+            listener.cancel()
         }
         
         
-        init(turn: Enums.OnOffState) throws {
+        /*
+         1. on or off?  If off, no need for listener.
+         
+         On:
+         1. set up listener
+         2. get listener local host and port (listener remains running)
+         3. output string message for command
+         4. send command
+         5. wait to update light
+         6. if light is found, release wait to update light
+        */
+        
+        
+        init(turn: Enums.OnOffState, ownIP: NWEndpoint.Host, targetIP: NWEndpoint.Host) throws {
             
             switch turn {
             case .on:
                 self.p1_action = 1
+                self.p2_listenerHost = String(reflecting: ownIP)
+                try listen(targetIP: targetIP, { (port) in
+                    self.p3_listenerPort = port
+                })
+                
             case .off:
                 self.p1_action = 0
+                self.p2_listenerHost = ""
+                self.p3_listenerPort = 0
             }
             
-            // there's another way...
-            try self.listen() { (newConn, newQueue) in
-                return (newConn, newQueue)
+            print("init finished")
+        }
+        
+        
+        public func savedConnection() throws -> Connection {
+            guard let conn = self.musicModeConn else {
+                throw MethodError.connectionNotMade
             }
+            return conn
         }
         
         
         
         /// output as string in correct format for the light
-        public func string() -> String {
-            return Method().methodParamString(self.method, self.p1_action, self.p2_host, self.p3_port)
+        public func string() throws -> String {
+            guard let listenerPort = self.p3_listenerPort else {
+                throw MethodError.localPortNotFound
+            }
+            // the listener with a DispatchGroup lock should stop the init from returning before it finds the
+            return Method().methodParamString(self.method, self.p1_action, self.p2_listenerHost, listenerPort)
         }
         
         
@@ -545,8 +618,8 @@ public struct Method {
     
     
     public struct set_name {
-        public let method: String = "set_name"
-        public let p1_name: String
+        private let method: String = "set_name"
+        private let p1_name: String
         
         init(_ name: String) {
             self.p1_name = name

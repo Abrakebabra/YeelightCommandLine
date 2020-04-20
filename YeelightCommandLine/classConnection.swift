@@ -12,9 +12,9 @@ import Network
 
 
 public class Connection {
-    // search addr, port
-    var endpointHost: NWEndpoint.Host?
-    var endpointPort: NWEndpoint.Port?
+    // remote addr, port
+    var remoteHost: NWEndpoint.Host?
+    var remotePort: NWEndpoint.Port?
     
     // dispatch management
     let serialQueue: DispatchQueue
@@ -65,15 +65,15 @@ public class Connection {
     
     // Get the local port opened to send
     // Return nil if no hostPort connection found
-    func getHostPort(fromConnection conn: NWConnection, endpoint: EndpointLocation) -> (NWEndpoint.Host, NWEndpoint.Port)? {
+    func getHostPort(endpoint: EndpointLocation) -> (NWEndpoint.Host, NWEndpoint.Port)? {
         
         let endpointLocation: NWEndpoint?
         
         switch endpoint {
         case .local:
-            endpointLocation = conn.currentPath?.localEndpoint
+            endpointLocation = self.conn.currentPath?.localEndpoint
         case .remote:
-            endpointLocation = conn.currentPath?.remoteEndpoint
+            endpointLocation = self.conn.currentPath?.remoteEndpoint
         }
         
         // safely unwrap
@@ -91,7 +91,7 @@ public class Connection {
     
     
     // handles the receiving from tcp conn with light
-    private func receiveRecursively() -> Void {
+    func receiveRecursively() -> Void {
         self.conn.receive(minimumIncompleteLength: 1, maximumLength: 65536) { (data, _, _, error) in
             // Data?, NWConnection.ContentContext?, Bool, NWError?
             
@@ -101,7 +101,11 @@ public class Connection {
             
             if error != nil {
                 self.receiveLoop = false
-                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"):  \(error.debugDescription)")
+                var host = "Unknown"
+                if let unwrappedHost = self.remoteHost {
+                    host = String(reflecting: unwrappedHost)
+                }
+                print("\(host):  \(String(reflecting: error))")
                 return
             }
             
@@ -118,6 +122,17 @@ public class Connection {
     
     // separated so that init overrides don't need to include all this again
     func stateUpdateHandler() {
+        
+        var host = "Unknown IP"
+        var port = "Unknown Port"
+        
+        if let unwrappedHost = self.remoteHost {
+            host = String(reflecting: unwrappedHost)
+        }
+        if let unwrappedPort = self.remotePort {
+            port = String(reflecting: unwrappedPort)
+        }
+        
         self.conn.stateUpdateHandler = { (newState) in
             switch(newState) {
             case .setup:
@@ -126,20 +141,20 @@ public class Connection {
                 self.status = "preparing"
             case .ready:
                 self.status = "ready"
-                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port") ready")
+                print("\(host): \(port) ready")
             case .waiting(let error):
                 self.status = "waiting"
-                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port") waiting with error: \(error.debugDescription)")
+                print("\(host): \(port) waiting with error: \(String(reflecting: error))")
             case .failed(let error):
                 self.status = "failed"
-                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port"), connection failed with error: \(error.debugDescription)")
+                print("\(host): \(port), connection failed with error: \(String(reflecting: error))")
             case .cancelled:
                 self.status = "cancelled"
-                print("\(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port") connection cancelled")
+                print("\(host): \(port) connection cancelled")
             @unknown default:
                 // recommended in case of future changes
                 self.status = "unknown"
-                print("Unknown status for \(self.endpointHost?.debugDescription ?? "Unknown IP"): \(self.endpointPort?.debugDescription ?? "Unknown Port")")
+                print("Unknown status for \(host): \(port)")
             } // switch
         }
     } // stateUpdateHandler()
@@ -148,8 +163,8 @@ public class Connection {
     // init new connection
     init(host: NWEndpoint.Host, port: NWEndpoint.Port, serialQueueLabel: String, connType: NWParameters, receiveLoop: Bool) {
         
-        self.endpointHost = host
-        self.endpointPort = port
+        self.remoteHost = host
+        self.remotePort = port
         
         // label the queue
         self.serialQueue = DispatchQueue(label: serialQueueLabel)
@@ -188,11 +203,11 @@ public class Connection {
         
         // once connection is ready, save local host and port
         self.statusReady = {
-            let remoteHostPort = self.getHostPort(fromConnection: self.conn, endpoint: .remote)
+            let remoteHostPort = self.getHostPort(endpoint: .remote)
             
             if let remoteHostPort = remoteHostPort {
-                self.endpointHost = remoteHostPort.0
-                self.endpointPort = remoteHostPort.1
+                self.remoteHost = remoteHostPort.0
+                self.remotePort = remoteHostPort.1
             } else {
                 print("Can't establish remote host and port")
             }
@@ -204,8 +219,6 @@ public class Connection {
             self.receiveRecursively()
         }
     }
-    
-    
     
     
     

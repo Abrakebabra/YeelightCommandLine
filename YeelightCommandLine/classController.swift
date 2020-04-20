@@ -171,7 +171,7 @@ public class UDPConnection: Connection {
         self.conn.send(content: UDPConnection.searchBytes, completion: self.sendCompletion)
         
         // safely unwrap local port
-        guard let localHostPort = self.getHostPort(fromConnection: self.conn, endpoint: .local) else {
+        guard let localHostPort = self.getHostPort(endpoint: .local) else {
             print("Couldn't find local port")
             return
         }

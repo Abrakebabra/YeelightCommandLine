@@ -83,6 +83,46 @@ while runProgram == true {
                 print(error)
             }
         }
+    
+    case "musicOn":
+        do {
+            let localEndpoint = controller.lights["0x0000000007e71ffd"]?.tcp.getHostPort(endpoint: .local)
+            let targetIP = controller.lights["0x0000000007e71ffd"]?.tcp.remoteHost
+            
+            if let localEndpoint = localEndpoint, let targetIP = targetIP {
+                let musicMode = try Method.set_music(turn: .on, ownIP: localEndpoint.0, targetIP: targetIP)
+                let message = try musicMode.string()
+                
+                controller.lights["0x0000000007e71ffd"]?.communicate(message)
+                
+                controller.lights["0x0000000007e71ffd"]?.musicModeTCP =
+                    try musicMode.savedConnection()
+                controller.lights["0x0000000007e71ffd"]?.state.musicMode = true
+            }
+            
+        }
+        catch let error {
+            print(error)
+        }
+        
+    case "musicOff":
+        do {
+            let localEndpoint = controller.lights["0x0000000007e71ffd"]?.tcp.getHostPort(endpoint: .local)
+            let targetIP = controller.lights["0x0000000007e71ffd"]?.tcp.remoteHost
+            
+            if let localEndpoint = localEndpoint, let targetIP = targetIP {
+                let musicMode = try Method.set_music(turn: .off, ownIP: localEndpoint.0, targetIP: targetIP)
+                let message = try musicMode.string()
+                
+                controller.lights["0x0000000007e71ffd"]?.communicate(message)
+                controller.lights["0x0000000007e71ffd"]?.state.musicMode = false
+            }
+            
+        }
+        catch let error {
+            print(error)
+        }
+ 
     case "discover":
         controller.discover(wait: .lightCount(6))
         

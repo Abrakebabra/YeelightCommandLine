@@ -89,45 +89,15 @@ public struct State {
 
 
 
-// All things related to the tcp connection between program and light
-public class TCPConnection: Connection {
-    public var ip: String
-    public var port: String
-    public var id: String
-    
-    
-    init(_ ip: String, _ port: String, _ id: String) throws {
-        self.ip = ip
-        self.port = port
-        self.id = id
-        
-        guard let portEndpoint = NWEndpoint.Port(port) else {
-            throw DiscoveryError.tcpInitFailed("Port not found")
-        }
-        
-        let tcpParams = NWParameters.tcp
-        tcpParams.acceptLocalOnly = true
-        
-        super.init(host: NWEndpoint.Host(ip), port: portEndpoint,
-                   serialQueueLabel: "TCP Queue", connType: tcpParams,
-                   receiveLoop: true)
-        
-    } // init
-} // struct TCPConnection
-
-
-
 // Identifying and useful information about light
 public struct Info {
     public let id: String
-    public let ip: String
     public var name: String
     public let model: String // Might be useful for lights with limited abilities
     public let support: String // Might be useful for lights with limited abilities
     
-    init(_ id: String, _ ip: String, _ name: String, _ model: String, _ support: String) {
+    init(_ id: String, _ name: String, _ model: String, _ support: String) {
         self.id = id
-        self.ip = ip
         self.name = name
         self.model = model
         self.support = support
@@ -145,15 +115,10 @@ public struct Info {
 public class Light {
     
     public var state: State
-    public var tcp: TCPConnection
-    public var musicModeTCP: TCPConnection?
+    public var tcp: Connection
+    public var musicModeTCP: Connection?
     public var info: Info
     public var requestTicket: Int = 0
-    
-    public enum Connection {
-        case standardTCP
-        case musicModeTCP
-    }
     
     
     
@@ -330,12 +295,18 @@ public class Light {
         // Holds the light's current state
         self.state = State(power, colorMode, brightness, colorTemp, rgb, hue, sat)
         
-        // Holds the connection
-        // throws if can't convert string to NWendpoint.Port
-        self.tcp = try TCPConnection(ip, port, id)
+        guard let portEndpoint = NWEndpoint.Port(port) else {
+            throw DiscoveryError.tcpInitFailed("Port not found")
+        }
         
-        // Holds supporting information and identifiers
-        self.info = Info(id, ip, name, model, support)
+        let tcpParams = NWParameters.tcp
+        tcpParams.acceptLocalOnly = true
+        
+        // Holds the connection
+        self.tcp = Connection(host: NWEndpoint.Host(ip), port: portEndpoint, serialQueueLabel: "TCP Queue", connType: tcpParams, receiveLoop: true)
+        
+        // Holds supporting information and identifier
+        self.info = Info(id, name, model, support)
         
         
         // handle new data received in closure from didSet var

@@ -22,6 +22,7 @@ public enum UDPError: Error {
 
 public enum ListenerError: Error {
     case listenerFailed
+    case noConnectionFound
 }
 
 
@@ -50,4 +51,6 @@ public enum MethodError: Error {
     case valueBeyondMin(String)
     case valueBeyondMax(String)
     case fewerChangesThanStatesEntered
+    case localPortNotFound
+    case connectionNotMade
 }

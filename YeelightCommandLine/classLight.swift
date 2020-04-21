@@ -123,7 +123,7 @@ public class Light {
     }
     public var info: Info
     public var requestTicket: Int = 0
-    
+    private let deinitControl = DispatchGroup()
     
     
     // update the state of the light
@@ -327,6 +327,10 @@ public class Light {
         }
         
     } // Light.init()
+    
+    
+    
+    
     
     
     

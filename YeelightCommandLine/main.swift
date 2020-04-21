@@ -11,7 +11,6 @@ import Foundation
 var runProgram = true
 let controller = Controller()
 
-
 controller.discover(wait: .lightCount(6))
 
 /*
@@ -86,28 +85,17 @@ while runProgram == true {
     
     case "musicOn":
         do {
-            guard let localEndpoint = controller.lights["0x0000000007e71ffd"]?.tcp.getHostPort(endpoint: .local) else {
-                throw ConnectionError.endpointNotFound
-            }
-            let localIP = localEndpoint.0
-            print("LOCAL IP: \(localIP)")
-            let targetIP = controller.lights["0x0000000007e71ffd"]?.tcp.remoteHost
-            
-            
             // set up object
             // set up listener
                 // hold listener to wait - different thread
             // output string
             
-            
-            let musicMode = try Method.set_music(state: .on(localIP: localIP, targetIP: targetIP))
-            print("MusicMode instance created")
+            let bikeLight = controller.lights["0x0000000007e71ffd"]
+            let musicMode = try Method.set_music(light: bikeLight!, state: .on)
             let message = musicMode.string()
-            print("MusicMode message created")
             
             controller.lights["0x0000000007e71ffd"]?.communicate(message)
             
-            controller.lights["0x0000000007e71ffd"]?.musicModeTCP = musicMode.savedConnection()
             controller.lights["0x0000000007e71ffd"]?.state.musicMode = true
             
         }
@@ -117,7 +105,8 @@ while runProgram == true {
         
     case "musicOff":
         do {
-            let musicMode = try Method.set_music(state: .off)
+            let bikeLight = controller.lights["0x0000000007e71ffd"]
+            let musicMode = try Method.set_music(light: bikeLight!, state: .off)
             let message = musicMode.string()
             
             controller.lights["0x0000000007e71ffd"]?.state.musicMode = false

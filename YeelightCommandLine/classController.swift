@@ -333,7 +333,7 @@ public class Controller {
         for (_, value) in self.lights {
             value.tcp.conn.cancel()
         }
-        sleep(1)
+        
         self.lights.removeAll(keepingCapacity: true)
         
         var udp: UDPConnection? = UDPConnection()

@@ -59,7 +59,7 @@ public enum Enums {
     
     /// music mode on or off
     public enum MusicState {
-        case on(localIP: NWEndpoint.Host?, targetIP: NWEndpoint.Host?)
+        case on
         case off
     }
     
@@ -516,7 +516,7 @@ public struct Method {
         private let controlGroup2 = DispatchGroup()
         
         /// closure (newConn: Connection, host: String, port: Int)
-        func listen(targetIP: NWEndpoint.Host?, _ closure:@escaping (Int) -> Void) throws -> Void {
+        func listen(light: Light, targetIP: NWEndpoint.Host?, _ closure:@escaping (Int) -> Void) throws -> Void {
             
             // control flow for function
             let listenerGroup = DispatchGroup()
@@ -550,8 +550,8 @@ public struct Method {
                         if host == targetIP {
                             print("HOST = IP")
                             
-                            self.musicModeConn = Connection(existingConn: newConn, existingQueue: serialQueue, remoteHost: host, remotePort: port, receiveLoop: true)
-                            self.controlGroup2.leave()
+                            light.musicModeTCP = Connection(existingConn: newConn, existingQueue: serialQueue, remoteHost: host, remotePort: port, receiveLoop: true)
+                            // self.controlGroup2.leave()
                             listenerGroup.leave()
                         }
                         
@@ -616,23 +616,26 @@ public struct Method {
         */
         
         
-        init(state: Enums.MusicState) throws {
+        init(light: Light, state: Enums.MusicState) throws {
             
             switch state {
-            case .on(let localIP, let targetIP):
+            case .on:
                 self.p1_action = 1
-                if let localIP = localIP {
-                    self.p2_listenerHost = String(reflecting: localIP)
-                } else {
-                    self.p2_listenerHost = "Not found"
+                
+                guard let localEndpoint = light.tcp.getHostPort(endpoint: .local) else {
+                    throw ConnectionError.endpointNotFound
                 }
                 
+                // listener IP to send to light
+                self.p2_listenerHost = String(reflecting: localEndpoint.0)
                 
+                let targetIP = light.tcp.remoteHost
+
                 self.controlGroup.enter()
-                self.controlGroup2.enter()
+                // self.controlGroup2.enter()
                 self.controlQueue.async {
                     do {
-                        try self.listen(targetIP: targetIP, { (port) in
+                        try self.listen(light: light, targetIP: targetIP, { (port) in
                             self.p3_listenerPort = port
                             print("listener port found")
                             self.controlGroup.leave() // control unlock
@@ -655,7 +658,7 @@ public struct Method {
         
         public func savedConnection() -> Connection? {
             print("CG2 waiting")
-            self.controlGroup2.wait()
+            // self.controlGroup2.wait()
             if self.musicModeConn == nil {
                 print("no music conn in method")
             }

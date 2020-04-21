@@ -44,6 +44,9 @@ public class Connection {
     
     
     // if the status is set to "ready", the closure is able to be called
+    var statusCancelled: (() -> Void)?
+    
+    // if the status is set to "ready", the closure is able to be called
     var statusReady: (() throws -> Void)?
     var status: String = "unknown" {
         didSet {
@@ -54,7 +57,10 @@ public class Connection {
                 catch let error {
                     print("status ready closure error: \(error)")
                 }
-            } // if status ready
+                
+            } else if status == "cancelled" {
+                statusCancelled?()
+            }
         } // didSet
     } // status
     
@@ -108,7 +114,6 @@ public class Connection {
                     host = String(reflecting: unwrappedHost)
                 }
                 print("Conn receive error: \(host):  \(String(reflecting: error))")
-                return
                 
             } else {
                 self.newData = data
@@ -194,7 +199,7 @@ public class Connection {
             
         }
         
-    } // Connection.init()
+    } // Connection.init() newConn
     
     
     // init with existing connection
@@ -231,14 +236,9 @@ public class Connection {
             if receiveLoop == true {
                 self.receiveRecursively()
             }
-            
-        }
+        } // self.statusReady
         
-
-        
-    }
-    
-    
+    } // Connection.init() existingConn
     
     
 } // class Connection

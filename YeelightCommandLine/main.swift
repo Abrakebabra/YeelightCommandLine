@@ -23,6 +23,9 @@ for (key, value) in controller.lights {
 
 sleep(1)
 
+// test purposes
+let bikeLight = controller.lights["0x0000000007e71ffd"]
+
 while runProgram == true {
     print("Awaiting input")
     let input: String? = readLine()
@@ -31,7 +34,7 @@ while runProgram == true {
     case "on":
         do {
             let message = try Method.set_power(power: .on, effect: .sudden).string()
-            controller.lights["0x0000000007e71ffd"]?.communicate(message)
+            bikeLight?.communicate(message)
         }
         catch let error {
             print(error)
@@ -40,7 +43,7 @@ while runProgram == true {
     case "off":
         do {
             let message = try Method.set_power(power: .off, effect: .sudden).string()
-            controller.lights["0x0000000007e71ffd"]?.communicate(message)
+            bikeLight?.communicate(message)
         }
         catch let error {
             print(error)
@@ -55,7 +58,7 @@ while runProgram == true {
             try flowExpressions.addState(expression: .rgb(value: 300000, bright_val: 100, duration: 3000))
             
             let message = try Method.set_colorFlow(.finite(count: 8), .returnPrevious, flowExpressions).string()
-            controller.lights["0x0000000007e71ffd"]?.communicate(message)
+            bikeLight?.communicate(message)
         }
         catch let error {
             print(error)
@@ -85,18 +88,8 @@ while runProgram == true {
     
     case "musicOn":
         do {
-            // set up object
-            // set up listener
-                // hold listener to wait - different thread
-            // output string
-            
-            let bikeLight = controller.lights["0x0000000007e71ffd"]
-            let musicMode = try Method.set_music(light: bikeLight!, state: .on)
-            let message = musicMode.string()
-            
-            controller.lights["0x0000000007e71ffd"]?.communicate(message)
-            
-            controller.lights["0x0000000007e71ffd"]?.state.musicMode = true
+            let message = try Method.set_music(light: bikeLight!, state: .on).string()
+            bikeLight?.communicate(message)
             
         }
         catch let error {
@@ -105,19 +98,8 @@ while runProgram == true {
         
     case "musicOff":
         do {
-            let bikeLight = controller.lights["0x0000000007e71ffd"]
-            let musicMode = try Method.set_music(light: bikeLight!, state: .off)
-            let message = musicMode.string()
-            
-            controller.lights["0x0000000007e71ffd"]?.state.musicMode = false
-            controller.lights["0x0000000007e71ffd"]?.communicate(message)
-            
-            // MUST CANCEL AND DEINIT
-            controller.lights["0x0000000007e71ffd"]?.musicModeTCP?.conn.cancel()
-            sleep(1)
-            controller.lights["0x0000000007e71ffd"]?.musicModeTCP = nil
-            
-            
+            let message = try Method.set_music(light: bikeLight!, state: .off).string()
+            bikeLight?.communicate(message)
         }
         catch let error {
             print(error)
@@ -130,7 +112,7 @@ while runProgram == true {
             
             do {
                 let message = try Method.set_hsv(hue_value: hsv, sat_value: 50, effect: .sudden).string()
-                controller.lights["0x0000000007e71ffd"]?.communicate(message)
+                bikeLight?.communicate(message)
             }
             catch let error {
                 print(error)

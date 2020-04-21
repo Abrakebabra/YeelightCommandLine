@@ -56,6 +56,9 @@ Cannot be turned off while music mode is on or music mode will automatically be 
 BUT... music mode can be turned on while it is off.
 
 
+what if light is physically turned off while music mode connection has been set?
+
+
 Fix:
  - Sort out error names: Only enum cases are printed, not enum name itself.
  - Light should actually be a reference type in case it's ever copied. DONE

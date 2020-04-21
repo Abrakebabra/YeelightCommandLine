@@ -42,8 +42,8 @@ public enum Enums {
         }
     }
     
-    /// power on or off
-    public enum PowerState {
+    /// on or off
+    public enum OnOff {
         case on
         case off
         
@@ -55,12 +55,6 @@ public enum Enums {
                 return "off"
             }
         }
-    }
-    
-    /// music mode on or off
-    public enum MusicState {
-        case on
-        case off
     }
     
     
@@ -81,7 +75,7 @@ public enum Enums {
                 return count
             }
         }
-    }
+    } // enum numOfStateChanges
     
     // start_cf
     public enum onCompletion {
@@ -104,7 +98,7 @@ public enum Enums {
                 return 2
             }
         }
-    }
+    } // enum onCompletion
     
     // start_cf
     // creates a tuple for each color state
@@ -138,8 +132,8 @@ public enum Enums {
                 return [duration, 7, 0, 0]
             }
         }
-    }
-}
+    } // enum setState
+} // enum Enums
 
 
 
@@ -179,7 +173,8 @@ public struct Method {
         return """
         "method":"\(method)", "params":\(parameters)
         """
-    }
+    } // Method.methodParamString()
+    
     
     // checks that a range is within the bounds per specifications
     fileprivate func valueInRange(_ valueName: String, _ value: Int, min: Int, max: Int? = nil) throws -> Void {
@@ -194,6 +189,7 @@ public struct Method {
             }
         }
     } // Method.valueBoundCheck()
+    
     
     // no get_prop method
     
@@ -217,7 +213,7 @@ public struct Method {
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_ct_value, self.p2_effect, self.p3_duration)
         }
-    }
+    } // Method.set_colorTemp
     
     
     public struct set_rgb {
@@ -239,7 +235,8 @@ public struct Method {
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_rgb_value, self.p2_effect, self.p3_duration)
         }
-    }
+    } // Method.set_rgb
+    
     
     public struct set_hsv {
         private let method: String = "set_hsv"
@@ -263,7 +260,8 @@ public struct Method {
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_hue_value, self.p2_sat_value, self.p3_effect, self.p4_duration)
         }
-    }
+    } // Method.set_hsv
+    
     
     public struct set_bright {
         private let method: String = "set_bright"
@@ -284,7 +282,8 @@ public struct Method {
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_bright_value, self.p2_effect, self.p3_duration)
         }
-    }
+    } // Method.set_bright
+    
     
     public struct set_power {
         private let method: String = "set_power"
@@ -294,7 +293,7 @@ public struct Method {
         // has optional 4th parameter to switch to mode but excluding
         
         /// duration min = 30ms (as default)
-        init(power: Enums.PowerState, effect: Enums.Effect, duration: Int = 30) throws {
+        init(power: Enums.OnOff, effect: Enums.Effect, duration: Int = 30) throws {
             try Method().valueInRange("duration", duration, min: 30)
             self.p1_power = power.string()
             self.p2_effect = effect.string()
@@ -305,10 +304,12 @@ public struct Method {
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_power, self.p2_effect, self.p3_duration)
         }
-    }
+    } // Method.set_power
+    
     
     // no toggle method
     // no set_default method
+    
     
     public struct set_colorFlow {
         
@@ -367,7 +368,8 @@ public struct Method {
         public func string() -> String {
             return Method().methodParamString(method, p1_count, p2_action, p3_flow_expression)
         }
-    }
+    } // Method.set_colorFlow
+    
     
     public struct set_colorFlowStop {
         private let method: String = "stop_cf"
@@ -381,9 +383,10 @@ public struct Method {
         public func string() -> String {
             return Method().methodParamString(self.method)
         }
-    }
+    } // Method.set_colorFlowStop
     
     
+    /// send both rgb, hsv or colorTemp change along with brightness in a single command
     public struct set_scene {
         // leaving out color flow because it doesn't benefit from having an additional method through set_scene whereas rgb and ct can adjust brightness in a single command rather than separately.
         // Might review color flow in the future (10 April 2020).
@@ -405,7 +408,7 @@ public struct Method {
             public func string() -> String {
                 return Method().methodParamString(self.method, self.p1_method, self.p2_rgb, self.p3_bright)
             }
-        }
+        } // Method.set_scene.rgb_bright
         
         public struct hsv_bright {
             private let method: String = "set_scene"
@@ -428,7 +431,7 @@ public struct Method {
             public func string() -> String {
                 return Method().methodParamString(self.method, self.p1_method, self.p2_hue, self.p3_sat, self.p4_bright)
             }
-        }
+        } // Method.set_scene.hsv_bright
         
         public struct color_temp_bright {
             private let method: String = "set_scene"
@@ -448,13 +451,15 @@ public struct Method {
             public func string() -> String {
                 return Method().methodParamString(self.method, self.p1_method, self.p2_color_temp, self.p3_bright)
             }
-        }
-    }
+        } // Method.set_scene.color_temp_bright
+    } // Method.set_scene
+    
     
     // no cron_add method
     // no cron_get method
     // no cron_del method
     // no set_adjust method
+    
     
     /// new TCP connection with unlimited commands and no property update response
     public class set_music {
@@ -480,43 +485,63 @@ public struct Method {
           - The control device can stop music mode by explicitly send a stop command or just by closing the socket.
          
          TO DO:
-         
          Build method for sending params
          Build listener and handlers
          
-          - Does it need a listener?  Or perhaps they used incorrect term.
           - Set up listener, start and just use listener.port after it starts
           - save that port - use an escaping closure
           - send message to light notifying local ip and listener port (add IP to existing function)
           - save that one new connection
-          - create new tcp connection with that
-         
-         
-         
-         Listener:
-          - Save the connection in a closure and 
-          - Receive message and see what is received - no need because receive loop will handle that - but should also receive first message and see what it says
-         
+          - create new tcp connection instance with that
         */
         
+        
+        /*
+         FUNCTION'S CONTROL FLOW EXPLAINED
+         (Weds April 22, 2020, 2:02am) because I didn't document it the first time, because I finished it the day before at 3:30am and went straight to bed.
+         
+         Each step is copied and pasted into the appropriate location within this class.
+         
+         Step 1:  Class instance in Thread A (calling thread) is created
+            let message = try Method.set_music(light: light, state: .on).string()
+         
+         Step 2:  self.p1_action and self.p2_listenerHost are initalised
+         
+         Step 3:  Listener function is called asynchonously and runs in its own Thread B.
+         
+         Step 4:  The listener function has an escaping closure (listener port escaping) that will be called when the listener's status is ready.
+         
+         Step 5:  init is now waiting at end of closure before completion, blocking the calling thread (Thread A).  LOCK 1.
+         
+         Step 6:  Listener is now waiting at end of closure before completion (LOCK 2), on a timeout of 1 second if target IP is not found, which will cancel the listener, and TIMEOUT RELEASE LOCK 1. *(See appendix for details)
+         
+         Step 7:  Once listener state is ready, it passes the port it selected to the escaping closure which sets self.p3_listenerPort and RELEASE LOCK 1.
+         
+         Step 8:  Initialiser is now complete.  The string is sent to the light. (listener still waiting in Thread B).
+         
+         Step 9:  The light receives the message and now attempts to connect to the listener's IP and Port.
+         
+         Step 10:  Listener finds the light, checks its IP against the light it was targetting.  If the IP found does not match, it will ignore.  If the IP matches, it will create a new Connection instance and save it directly to the Light instance passed to this Struct.  If found, it will immediately RELEASE LOCK 2 in the listener.
+         
+         Step 11:  Listener is cancelled and function is now complete.
+         
+         * Appendix:  If the listener times out, the listener port is nil and the self.string() function filters the nil value out.  Method, p1 and p2 are passed to the Light.communicate() function which sends this to the light.  The command is missing port and the light rejects this as invalid and ignores it with no response.
+         
+        */
         private let method: String = "set_music"
         private let p1_action: Int
         private var p2_listenerHost: String?
         private var p3_listenerPort: Int?
         
-        private var musicModeConn: Connection? {
-            didSet {
-                print("Got music connection!")
-            }
-        }
-        
         private var listener: NWListener?
         private let controlQueue = DispatchQueue(label: "Control Queue")
         private let controlGroup = DispatchGroup()
-        private let controlGroup2 = DispatchGroup()
         
-        /// closure (newConn: Connection, host: String, port: Int)
-        func listen(light: Light, targetIP: NWEndpoint.Host?, _ closure:@escaping (Int) -> Void) throws -> Void {
+        
+        
+        /// closure(listenerPort: Int)
+        func listen(light: Light,targetIP: NWEndpoint.Host?,
+                    _ closure:@escaping (Int) -> Void) throws -> Void {
             
             // control flow for function
             let listenerGroup = DispatchGroup()
@@ -533,25 +558,20 @@ public struct Method {
             }
             
             
-            
-            
             listener.newConnectionHandler = { (newConn) in
                 
-                print("music listener found") // DEBUG
-                
+                // STEP 9:  The light receives the message and now attempts to connect to the listener's IP and Port.
                 
                 if let remoteEnd = newConn.currentPath?.remoteEndpoint,
                     let targetIP = targetIP {
                     
                     switch remoteEnd {
                     case .hostPort(let host, let port):
-                        print("REMOTE END HOST: \(host)")
-                        print("TARGET IP: \(targetIP)")
                         if host == targetIP {
-                            print("HOST = IP")
                             
-                            light.musicModeTCP = Connection(existingConn: newConn, existingQueue: serialQueue, remoteHost: host, remotePort: port, receiveLoop: true)
-                            // self.controlGroup2.leave()
+                            // STEP 10:  Listener finds the light, checks its IP against the light it was targetting.  If the IP found does not match, it will ignore.  If the IP matches, it will create a new Connection instance and save it directly to the Light instance passed to this Struct.  If found, it will immediately RELEASE LOCK 2 in the listener.
+                            
+                            light.musicModeTCP = Connection(existingConn: newConn, existingQueue: serialQueue, remoteHost: host, remotePort: port, receiveLoop: false)
                             listenerGroup.leave()
                         }
                         
@@ -564,20 +584,15 @@ public struct Method {
             
             listener.stateUpdateHandler = { (newState) in
                 switch newState {
-                case .setup:
-                    return
                 case .ready:
+                    // STEP 7:  Once listener state is ready, it passes the port it selected to the escaping closure which sets self.p3_listenerPort and RELEASE LOCK 1.
                     // get port and allow it to be accessed in closure to be used as parameter in command to light
                     if let listenerPort = listener.port?.rawValue {
                         closure(Int(listenerPort))
                     }
-                case .cancelled:
-                    print("listener cancelled")
-                case .waiting(let error):
-                    print("listener waiting error: \(error)")
                 case .failed(let error):
                     print("listener failed error: \(error)")
-                @unknown default:
+                default:
                     return
                 }
             }
@@ -590,6 +605,8 @@ public struct Method {
             let waitTime: UInt64 = 1 // default timeout seconds
             let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + waitTime * 1000000000)
             
+            
+            // STEP 6:  Listener is now waiting at end of closure before completion (LOCK 2), on a timeout of 1 second if target IP is not found, which will cancel the listener, and TIMEOUT RELEASE LOCK 1. *(See appendix for details)
             // wait 1 second to establish music TCP.  If not found, cancel listener.
             if listenerGroup.wait(timeout: futureTime) == .timedOut {
                 print("No connection available for music TCP")
@@ -598,44 +615,42 @@ public struct Method {
                 throw ListenerError.noConnectionFound
             }
             
-            // both cases
+            // on success
             listener.cancel()
-        }
+            // STEP 11:  Listener is cancelled and function is now complete.
+            
+        } // Method.set_music.listen()
         
         
-        /*
-         1. on or off?  If off, no need for listener.
-         
-         On:
-         1. set up listener
-         2. get listener local host and port (listener remains running)
-         3. output string message for command
-         4. send command
-         5. wait to update light
-         6. if light is found, release wait to update light
-        */
-        
-        
-        init(light: Light, state: Enums.MusicState) throws {
+        /// light: target light to affect, and simple .on or .off.  Off instances will cancel the musicTCP connection, and upon cancellation will deinit the Connection instance.
+        init(light: Light, state: Enums.OnOff) throws {
+            
+            //  STEP 1:  instance in Thread A (calling thread) is created
             
             switch state {
             case .on:
                 self.p1_action = 1
                 
+                // find the local IP
                 guard let localEndpoint = light.tcp.getHostPort(endpoint: .local) else {
                     throw ConnectionError.endpointNotFound
                 }
                 
-                // listener IP to send to light
+                // local IP is listener IP to send to light
                 self.p2_listenerHost = String(reflecting: localEndpoint.0)
                 
+                // STEP 2:  self.p1_action and self.p2_listenerHost are initalised
+                
+                // the target light's IP for the listener to look for
                 let targetIP = light.tcp.remoteHost
-
                 self.controlGroup.enter()
-                // self.controlGroup2.enter()
+                
+                // STEP 3:  Listener function is called asynchonously and runs in its own Thread B.
                 self.controlQueue.async {
                     do {
-                        try self.listen(light: light, targetIP: targetIP, { (port) in
+                        try self.listen(light: light, targetIP: targetIP, {
+                            (port) in
+                            // STEP 4:  The listener function has an escaping closure (listener port escaping) that will be called when the listener's status is ready.
                             self.p3_listenerPort = port
                             print("listener port found")
                             self.controlGroup.leave() // control unlock
@@ -643,28 +658,23 @@ public struct Method {
                     }
                     catch let error {
                         print(error)
-                        self.controlGroup.leave() // control unlock
+                        self.controlGroup.leave() // control unlock (Timeout)
                     }
-                }
+                } // controlQueue.async
                 
             case .off:
                 self.p1_action = 0
-            }
+                light.musicModeTCP?.conn.cancel()
+                light.musicModeTCP?.statusCancelled = {
+                    light.musicModeTCP = nil
+                }
+            } // switch
             
+            // STEP 5:  init is now waiting at end of closure before completion, blocking the calling thread (Thread A).  LOCK 1.
             self.controlGroup.wait() // control lock
-            print("init finished")
-        }
-        
-        
-        public func savedConnection() -> Connection? {
-            print("CG2 waiting")
-            // self.controlGroup2.wait()
-            if self.musicModeConn == nil {
-                print("no music conn in method")
-            }
-            return self.musicModeConn
-        }
-        
+            // Step 8:  Initialiser is now complete.  The string is sent to the light. (listener still waiting in Thread B).
+            
+        } // Method.set_music.init()
         
         
         /// output as string in correct format for the light
@@ -673,9 +683,7 @@ public struct Method {
             return Method().methodParamString(self.method, self.p1_action, self.p2_listenerHost, self.p3_listenerPort)
         }
         
-        
-        
-    }
+    } // Method.set_music
     
     
     public struct set_name {
@@ -690,7 +698,7 @@ public struct Method {
         public func string() -> String {
             return Method().methodParamString(self.method, self.p1_name)
         }
-    }
+    } // Method.set_name
     
     // no bg_set_xxx / bg_toggle method
     // no dev_toggle method

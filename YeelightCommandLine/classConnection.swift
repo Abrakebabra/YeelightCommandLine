@@ -29,7 +29,7 @@ public class Connection {
     
     var sendCompletion = NWConnection.SendCompletion.contentProcessed { (error) in
         if error != nil {
-            print(error.debugDescription)
+            print("Send error: \(error as Any)")
             return
         }
     } // sendCompletion
@@ -43,11 +43,11 @@ public class Connection {
     }
     
     
-    // if the status is set to "ready", the closure is able to be called
-    var statusCancelled: (() -> Void)?
+    // Closures called upon status changes
+    public var statusReady: (() throws -> Void)? // used to find ports
+    public var statusCancelled: (() -> Void)? // used to deinit musicTCP
+    public var statusFailed: (() -> Void)? // can be used to deinit a light
     
-    // if the status is set to "ready", the closure is able to be called
-    var statusReady: (() throws -> Void)?
     var status: String = "unknown" {
         didSet {
             if status == "ready" {
@@ -60,6 +60,9 @@ public class Connection {
                 
             } else if status == "cancelled" {
                 statusCancelled?()
+                
+            } else if status == "failed" {
+                statusFailed?()
             }
         } // didSet
     } // status

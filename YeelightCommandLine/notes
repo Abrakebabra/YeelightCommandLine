@@ -39,31 +39,24 @@ Check accepted ranges on rgb, hue, sat.  Documentation might not be correct.
 
 
 
-Probably use a DispatchGroup for DiscoveryWait on number of lights?
+Probably use a DispatchGroup for DiscoveryWait on number of lights? - DONE
 
 
 If light is flowing, needs to send a command to stop it or it won't change by itself.
 
 
-
-perhaps ping the lights periodically to prevent them from sleeping using a get_prop or something
-
-
-separate out tcp component to rest of light class?
+separate out tcp component to rest of light class? - DONE
 
 
-Cannot be turned off while music mode is on or music mode will automatically be turned off.
-BUT... music mode can be turned on while it is off.
+what if light is physically turned off while music mode connection has been set? - solved?
 
-
-what if light is physically turned off while music mode connection has been set?
 
 
 Fix:
  - Sort out error names: Only enum cases are printed, not enum name itself.
  - Light should actually be a reference type in case it's ever copied. DONE
-
-
+ - If light's music mode is currently on and another music mode on command is sent, program will crash. - Fixed.  DispatchGroup logic error.
+ - Cannot be turned off while music mode is on or music mode will automatically be turned off. BUT... music mode can be turned on while it is off. Solved
 
 
 

@@ -543,6 +543,8 @@ public struct Method {
         func listen(light: Light,targetIP: NWEndpoint.Host?,
                     _ closure:@escaping (Int) -> Void) throws -> Void {
             
+            // ... step 3 continues asynchronously... to step 6 below
+            
             // control flow for function
             let listenerGroup = DispatchGroup()
             
@@ -609,7 +611,7 @@ public struct Method {
             // STEP 6:  Listener is now waiting at end of closure before completion (LOCK 2), on a timeout of 1 second if target IP is not found, which will cancel the listener, and TIMEOUT RELEASE LOCK 1. *(See appendix for details)
             // wait 1 second to establish music TCP.  If not found, cancel listener.
             if listenerGroup.wait(timeout: futureTime) == .timedOut {
-                print("No connection available for music TCP")
+                print("Listener: No connection available for music TCP")
                 listener.cancel()
                 listenerGroup.leave()
                 throw ListenerError.noConnectionFound
@@ -617,7 +619,7 @@ public struct Method {
             
             // on success
             listener.cancel()
-            // STEP 11:  Listener is cancelled and function is now complete.
+            // STEP 11:  Listener is cancelled and entire function is now complete.
             
         } // Method.set_music.listen()
         
@@ -629,6 +631,14 @@ public struct Method {
             
             switch state {
             case .on:
+                
+                if let mode = light.state.musicMode {
+                    if mode == true {
+                        print("Already an existing music TCP connection")
+                        throw ConnectionError.connectionNotMade
+                    }
+                }
+                
                 self.p1_action = 1
                 
                 // find the local IP
@@ -658,21 +668,23 @@ public struct Method {
                     }
                     catch let error {
                         print(error)
-                        self.controlGroup.leave() // control unlock (Timeout)
                     }
                 } // controlQueue.async
                 
             case .off:
                 self.p1_action = 0
-                light.musicModeTCP?.conn.cancel()
-                light.musicModeTCP?.statusCancelled = {
-                    light.musicModeTCP = nil
-                }
+                // connection cancel and deinit is handled by Light class.
             } // switch
             
-            // STEP 5:  init is now waiting at end of closure before completion, blocking the calling thread (Thread A).  LOCK 1.
-            self.controlGroup.wait() // control lock
-            // Step 8:  Initialiser is now complete.  The string is sent to the light. (listener still waiting in Thread B).
+            // STEP 5:  init is now waiting at end of closure before completion, blocking the calling thread (Thread A).  LOCK 1. Next step in listen().
+            
+            
+            // length of time to wait until
+            let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + 500000000) // 0.5s
+            if self.controlGroup.wait(timeout: futureTime) == .timedOut {
+                print("listener failed to set up and establish port")
+            } // control lock
+            // Step 8:  Initialiser is now complete.  The string is sent to the light. (listener still waiting in Thread B).  Next step in listener newConn handler.
             
         } // Method.set_music.init()
         

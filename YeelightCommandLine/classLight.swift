@@ -39,7 +39,14 @@ public struct State {
     
     public var flowing: Bool?  // flowing or not
     public var flowParams: [Int]?  // tuple (4 integers) per state
-    public var musicMode: Bool?  // music mode on or off
+    fileprivate var musicModeOffNotify: (() -> Void)? // allows light to perform action if musicMode is set to false
+    public var musicMode: Bool? = false {
+        didSet {
+            if musicMode == false {
+                musicModeOffNotify?()
+            }
+        }
+    } // music mode on or off
     public var delayCountDownMins: Int?  // minutes until power off
     
     init(_ power: String,
@@ -324,6 +331,26 @@ public class Light {
                     print(error)
                 }
             }
+        }
+        
+        // if the light sends a signal that music mode has been turned off.
+        // if light is turned off during music mode, music mode is turned off, the light instance is notified, cancels the local connection and deinits connection.
+        self.state.musicModeOffNotify = {
+            self.musicModeTCP?.conn.cancel()
+            self.musicModeTCP?.statusCancelled = {
+                self.musicModeTCP = nil
+            }
+            self.musicModeTCP = nil
+            print("music mode connection cancelled")
+        }
+        
+        self.musicModeTCP?.statusFailed = {
+            self.musicModeTCP?.conn.cancel()
+            self.musicModeTCP?.statusCancelled = {
+                self.musicModeTCP = nil
+            }
+            self.musicModeTCP = nil
+            print("failed music mode connection cancelled")
         }
         
     } // Light.init()

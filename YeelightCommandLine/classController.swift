@@ -205,11 +205,12 @@ public class Controller {
     
     public typealias Alias = String
     public typealias ID = String
+    public typealias NameTakenBool = Bool
     
     // Stores all discovered lights as [idSerial : Data]
     public var lights: [String : Light] = [:]
-    public var alias: [Alias : ID] = [:]
-    
+    public var savedAliasIDs: [Alias : ID] = [:]
+    public var alias: [Alias : Light] = [:]
     
     
     // parse string data to store light data
@@ -321,6 +322,32 @@ public class Controller {
     } // Controller.decodeHandler()
     
     
+    // finder
+    private func findLight(alias: Alias, id: ID) -> Light? {
+        for (lightID, light) in self.lights {
+            if id == lightID {
+                return light
+            }
+        }
+        return nil
+    }
+    
+    
+    // sets discovered light instance to the saved aliases.  Could be existing and rediscovering lights in case of a connection error, or setting up new.
+    private func setAliasReference() {
+        // clear everything
+        self.alias.removeAll(keepingCapacity: true)
+        
+        for (alias, aliasID) in self.savedAliasIDs {
+            let light = self.findLight(alias: alias, id: aliasID)
+            if let light = light {
+                // pair light instance to alias key.
+                self.alias[alias] = light
+            }
+        }
+    }
+    
+    
     
     // =====================================================================
     // CONTROLLER FUNCTIONS ================================================
@@ -350,8 +377,78 @@ public class Controller {
     } // Controller.discover()
     
     
-    // set an alias for the lights instead of remembering the IDs
-    public func setLightAlias() {
+    /// Set an alias for the lights instead of using the IDs.  Closure must return a string back into the function as the alias.  Handling of input method is done here.  NameTaken Bool returns true if the name already exists. Code locked until unique alias provided. An empty string will save the light's ID as the alias.
+    public func setLightAlias(inputMethod:@escaping (NameTakenBool) -> String) -> Void {
+        
+        let aliasGroup = DispatchGroup()
+        let aliasQueue = DispatchQueue(label: "Alias Queue")
+        
+        //var dimMessage = ""
+        //var showMessage = ""
+        
+        // set message for dimming light
+        //dimMessage = try Method.set_power(power: .off, effect: .smooth).string()
+        //showMessage = try Method.set_scene.hsv_bright(250, 100, 50).string()
+        
+        
+        // dim all the lights
+        //for (_, light) in self.lights {
+            //light.communicate(dimMessage)
+        //}
+        
+        
+        for (id, light) in self.lights {
+            var nameTaken = false
+            var alias = id
+            //light.communicate(showMessage)
+            aliasGroup.enter()
+            // needs an input check to make sure the name doesn't already exist and if it does, to loop again.
+            aliasQueue.async {
+                
+                while true {
+                    let input = inputMethod(nameTaken)
+                    if input != "" {
+                        alias = input
+                    }
+                    if self.savedAliasIDs[alias] == nil {
+                        break
+                    } else {
+                        nameTaken = true
+                    }
+                }
+                
+                aliasGroup.leave()
+            }
+            
+            aliasGroup.wait()
+            self.savedAliasIDs[alias] = id
+            
+            //light.communicate(dimMessage)
+        } // cycle through saved lights and save IDs to aliases
+        
+        
+        // last step
+        self.setAliasReference()
+        
+        /*
+         How does alias work?
+          - Makes a new dictionary and creates a reference to light dictionary (or the light dictionary ids?) - perhaps I'll need a separate dictionary storing all of the saved references from alias to id string, then the usable alias of alias to instance which is a direct reference which can be re-referenced upon a new discovery.
+         
+         send message to all lights to change to not obvious state
+         
+         go through dictionary of lights and light the first one.
+         wait.
+         prompt user for new name.
+         confirm y/n.
+         once confirmed, save that name and reference to the saved alias to ID dictionary
+         release wait.
+         
+         go to next light and repeat until complete
+         
+         When all lights are complete, run through saved alias list, and any IDs that match the light instance IDs are then saved to alias:Light reference so that it can directly be accessed by name.
+        */
+        
+        
         
     }
     

@@ -11,7 +11,7 @@ import Foundation
 var runProgram = true
 let controller = Controller()
 
-controller.discover(wait: .lightCount(6))
+controller.discover(wait: .lightCount(7))
 
 /*
 sleep(2)
@@ -25,6 +25,26 @@ sleep(1)
 
 // test purposes
 let bikeLight = controller.lights["0x0000000007e71ffd"]
+
+
+
+controller.setLightAlias { (nameTaken) -> String in
+    var alias: String = ""
+    if nameTaken == true {
+        print("Alias name already taken")
+    }
+    print("Enter name for this light:")
+    let rawInput: String? = readLine()
+    if let stringAlias = rawInput {
+        alias = stringAlias
+    }
+    return alias
+}
+
+for (key, _) in controller.alias {
+    print(key)
+}
+
 
 while runProgram == true {
     print("Awaiting input")
@@ -44,6 +64,21 @@ while runProgram == true {
         do {
             let message = try Method.set_power(power: .off, effect: .sudden).string()
             bikeLight?.communicate(message)
+        }
+        catch let error {
+            print(error)
+        }
+        
+    case "ChosenOne":
+        do {
+            var flowExpressions = Method.set_colorFlow.CreateExpressions()
+            try flowExpressions.addState(expression: .rgb(value: 5, bright_val: 100, duration: 5000))
+            try flowExpressions.addState(expression: .rgb(value: 30000, bright_val: 100, duration: 2000))
+            try flowExpressions.addState(expression: .rgb(value: 160000, bright_val: 100, duration: 4000))
+            try flowExpressions.addState(expression: .rgb(value: 300000, bright_val: 100, duration: 3000))
+            
+            let message = try Method.set_colorFlow(.finite(count: 4), .returnPrevious, flowExpressions).string()
+            controller.alias["ChosenOne"]?.communicate(message)
         }
         catch let error {
             print(error)

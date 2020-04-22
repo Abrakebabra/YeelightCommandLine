@@ -371,6 +371,7 @@ public struct Method {
     } // Method.set_colorFlow
     
     
+    /// cancel current color flow
     public struct set_colorFlowStop {
         private let method: String = "stop_cf"
         
@@ -534,26 +535,23 @@ public struct Method {
         private var p3_listenerPort: Int?
         
         private var listener: NWListener?
+        private let targetLight: Light
         private let controlQueue = DispatchQueue(label: "Control Queue")
         private let controlGroup = DispatchGroup()
         
         
         
         /// closure(listenerPort: Int)
-        func listen(light: Light,targetIP: NWEndpoint.Host?,
-                    _ closure:@escaping (Int) -> Void) throws -> Void {
+        func listen(_ closure:@escaping (Int) -> Void) throws -> Void {
             
             // ... step 3 continues asynchronously... to step 6 below
             
             // control flow for function
             let listenerGroup = DispatchGroup()
-            
             // queue
             let serialQueue = DispatchQueue(label: "TCP Queue")
-            
             // setup listener in class to be cancelled via another function
             self.listener = try? NWListener(using: .tcp)
-            
             // was listener successfully set up?
             guard let listener = self.listener else {
                 throw ListenerError.listenerFailed
@@ -565,29 +563,32 @@ public struct Method {
                 // STEP 9:  The light receives the message and now attempts to connect to the listener's IP and Port.
                 
                 if let remoteEnd = newConn.currentPath?.remoteEndpoint,
-                    let targetIP = targetIP {
+                    let targetIP = self.targetLight.tcp.remoteHost {
                     
                     switch remoteEnd {
                     case .hostPort(let host, let port):
+                        
                         if host == targetIP {
                             
                             // STEP 10:  Listener finds the light, checks its IP against the light it was targetting.  If the IP found does not match, it will ignore.  If the IP matches, it will create a new Connection instance and save it directly to the Light instance passed to this Struct.  If found, it will immediately RELEASE LOCK 2 in the listener.
                             
-                            light.musicModeTCP = Connection(existingConn: newConn, existingQueue: serialQueue, remoteHost: host, remotePort: port, receiveLoop: false)
+                            self.targetLight.musicModeTCP = Connection(existingConn: newConn, existingQueue: serialQueue, remoteHost: host, remotePort: port, receiveLoop: false)
                             listenerGroup.leave()
-                        }
+                        } // if new connection IP and target IP match
                         
                     default:
                         return
                     } // switch statement
-                } // if remote end found
+                } // remote end and target IP unwrapped
             } // listener
             
             
             listener.stateUpdateHandler = { (newState) in
                 switch newState {
                 case .ready:
+                    
                     // STEP 7:  Once listener state is ready, it passes the port it selected to the escaping closure which sets self.p3_listenerPort and RELEASE LOCK 1.
+                    
                     // get port and allow it to be accessed in closure to be used as parameter in command to light
                     if let listenerPort = listener.port?.rawValue {
                         closure(Int(listenerPort))
@@ -607,8 +608,8 @@ public struct Method {
             let waitTime: UInt64 = 1 // default timeout seconds
             let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + waitTime * 1000000000)
             
-            
             // STEP 6:  Listener is now waiting at end of closure before completion (LOCK 2), on a timeout of 1 second if target IP is not found, which will cancel the listener, and TIMEOUT RELEASE LOCK 1. *(See appendix for details)
+            
             // wait 1 second to establish music TCP.  If not found, cancel listener.
             if listenerGroup.wait(timeout: futureTime) == .timedOut {
                 print("Listener: No connection available for music TCP")
@@ -617,10 +618,10 @@ public struct Method {
                 throw ListenerError.noConnectionFound
             }
             
-            // on success
-            listener.cancel()
             // STEP 11:  Listener is cancelled and entire function is now complete.
             
+            // on success
+            listener.cancel()
         } // Method.set_music.listen()
         
         
@@ -629,10 +630,12 @@ public struct Method {
             
             //  STEP 1:  instance in Thread A (calling thread) is created
             
+            self.targetLight = light // save reference to target light
+            
             switch state {
             case .on:
                 
-                if let mode = light.state.musicMode {
+                if let mode = self.targetLight.state.musicMode {
                     if mode == true {
                         print("Already an existing music TCP connection")
                         throw ConnectionError.connectionNotMade
@@ -642,7 +645,7 @@ public struct Method {
                 self.p1_action = 1
                 
                 // find the local IP
-                guard let localEndpoint = light.tcp.getHostPort(endpoint: .local) else {
+                guard let localEndpoint = self.targetLight.tcp.getHostPort(endpoint: .local) else {
                     throw ConnectionError.endpointNotFound
                 }
                 
@@ -651,20 +654,18 @@ public struct Method {
                 
                 // STEP 2:  self.p1_action and self.p2_listenerHost are initalised
                 
-                // the target light's IP for the listener to look for
-                let targetIP = light.tcp.remoteHost
                 self.controlGroup.enter()
                 
                 // STEP 3:  Listener function is called asynchonously and runs in its own Thread B.
                 self.controlQueue.async {
                     do {
-                        try self.listen(light: light, targetIP: targetIP, {
+                        try self.listen() {
                             (port) in
                             // STEP 4:  The listener function has an escaping closure (listener port escaping) that will be called when the listener's status is ready.
                             self.p3_listenerPort = port
                             print("listener port found")
                             self.controlGroup.leave() // control unlock
-                        })
+                        }
                     }
                     catch let error {
                         print(error)
@@ -678,12 +679,12 @@ public struct Method {
             
             // STEP 5:  init is now waiting at end of closure before completion, blocking the calling thread (Thread A).  LOCK 1. Next step in listen().
             
-            
             // length of time to wait until
             let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + 500000000) // 0.5s
             if self.controlGroup.wait(timeout: futureTime) == .timedOut {
                 print("listener failed to set up and establish port")
             } // control lock
+            
             // Step 8:  Initialiser is now complete.  The string is sent to the light. (listener still waiting in Thread B).  Next step in listener newConn handler.
             
         } // Method.set_music.init()

@@ -511,9 +511,9 @@ public struct Method {
          
          Step 4:  The listener function has an escaping closure (listener port escaping) that will be called when the listener's status is ready.
          
-         Step 5:  init is now waiting at end of closure before completion, blocking the calling thread (Thread A).  LOCK 1.
+         Step 5:  init is now waiting at end of closure before completion, blocking the calling thread (Thread A).  LOCK 1. *(See appendix for timeout details)
          
-         Step 6:  Listener is now waiting at end of closure before completion (LOCK 2), on a timeout of 1 second if target IP is not found, which will cancel the listener, and TIMEOUT RELEASE LOCK 1. *(See appendix for details)
+         Step 6:  Listener is now waiting at end of closure before completion (LOCK 2), on a timeout of 1 second if target IP is not found, which will cancel the listener.
          
          Step 7:  Once listener state is ready, it passes the port it selected to the escaping closure which sets self.p3_listenerPort and RELEASE LOCK 1.
          

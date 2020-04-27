@@ -76,7 +76,7 @@ public class UDPConnection: Connection {
         
         let listenerGroup = DispatchGroup()
         var waitCount: Int = 0 // default lightCount
-        var waitTime: UInt64 = 5 // default timeout seconds
+        var waitTime: UInt64 = 3 // default timeout seconds
         let futureTime = DispatchTime(uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds + waitTime * 1000000000)
         
         switch mode {
@@ -211,7 +211,6 @@ public class Controller {
     public var lights: [String : Light] = [:]
     public var savedAliasIDs: [Alias : ID] = [:]
     public var alias: [Alias : Light] = [:]
-    
     
     // parse string data to store light data
     private func parseProperties(Decoded decoded: String) -> [Property:Value] {
@@ -370,6 +369,7 @@ public class Controller {
             for i in dataArray {
                 self.decodeParseAndEstablish(i)
             }
+            
         }
         
         udp = nil
@@ -383,24 +383,32 @@ public class Controller {
         let aliasGroup = DispatchGroup()
         let aliasQueue = DispatchQueue(label: "Alias Queue")
         
-        //var dimMessage = ""
-        //var showMessage = ""
+        var dimMessage = ""
+        var showMessage = ""
+        var defaultOn = ""
         
         // set message for dimming light
-        //dimMessage = try Method.set_power(power: .off, effect: .smooth).string()
-        //showMessage = try Method.set_scene.hsv_bright(250, 100, 50).string()
+        do {
+            dimMessage = try Method.set_power(power: .off, effect: .smooth).string()
+            showMessage = try Method.set_scene.color_temp_bright(5000, 100).string()
+            defaultOn = try Method.set_scene.hsv_bright(60, 100, 100).string()
+        } catch let error {
+            print(error)
+        }
+        
+        
         
         
         // dim all the lights
-        //for (_, light) in self.lights {
-            //light.communicate(dimMessage)
-        //}
+        for (_, light) in self.lights {
+            light.communicate(dimMessage)
+        }
         
         
         for (id, light) in self.lights {
             var nameTaken = false
             var alias = id
-            //light.communicate(showMessage)
+            light.communicate(showMessage)
             aliasGroup.enter()
             // needs an input check to make sure the name doesn't already exist and if it does, to loop again.
             aliasQueue.async {
@@ -423,7 +431,7 @@ public class Controller {
             aliasGroup.wait()
             self.savedAliasIDs[alias] = id
             
-            //light.communicate(dimMessage)
+            light.communicate(dimMessage)
         } // cycle through saved lights and save IDs to aliases
         
         
@@ -448,6 +456,11 @@ public class Controller {
          When all lights are complete, run through saved alias list, and any IDs that match the light instance IDs are then saved to alias:Light reference so that it can directly be accessed by name.
         */
         
+        
+        // turn on all the lights
+        for (_, light) in self.lights {
+            light.communicate(defaultOn)
+        }
         
         
     }

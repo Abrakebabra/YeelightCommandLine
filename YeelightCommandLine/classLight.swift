@@ -192,9 +192,21 @@ public class Light {
             self.state.flowing = flow == 1 ? true : false
             
         case "flow_params":
-            guard let params = value as? [Int] else {
-                throw LightStateUpdateError.value("flow params to Array failed")
+            guard let string: String = value as? String else {
+                throw LightStateUpdateError.value("flow params to String failed")
             }
+            
+            let stringNoSpace: String = string.replacingOccurrences(of: " ", with: "")
+            let stringComponents: [String] = stringNoSpace.components(separatedBy: ",")
+            var params: [Int] = []
+            
+            for i in stringComponents {
+                guard let intComponent = Int(i) else {
+                    throw LightStateUpdateError.value("flow param component to Int failed")
+                }
+                params.append(intComponent)
+            }
+            
             self.state.flowParams = params
             
         case "music_on":

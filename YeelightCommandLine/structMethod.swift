@@ -137,6 +137,26 @@ public enum Enums {
 
 
 
+/// Converters for different methods of storing color value
+struct ColorConverter {
+    func rgbIntToTuple(rgb: Int) -> (Int, Int, Int) {
+        let gBitMask: Int = 0b000000001111111100000000
+        let bBitMask: Int = 0b000000000000000011111111
+        
+        return (rgb >> 16,
+                (rgb & gBitMask) >> 8,
+                rgb & bBitMask)
+    }
+    
+    func rgbTupleToInt(r: Int, g: Int, b: Int) -> Int {
+        let rg = (r << 8) | g
+        let rgb = (rg << 8) | b
+        
+        return rgb
+    }
+}
+
+
 
 // A rigid structure to ensure that all methods and parameters to be sent to the light as a command meet the light's rules to eliminate typos.
 public struct Method {
@@ -359,8 +379,10 @@ public struct Method {
             self.p2_action = onCompletion.int()
             self.p3_flow_expression = expressions.1
             
-            guard self.p1_count >= expressionCount else {
-                throw MethodError.fewerChangesThanStatesEntered
+            if self.p1_count != 0 {
+                guard self.p1_count >= expressionCount else {
+                    throw MethodError.fewerChangesThanStatesEntered
+                }
             }
         }
         

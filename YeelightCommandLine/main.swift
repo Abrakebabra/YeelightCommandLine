@@ -21,29 +21,31 @@ for (key, value) in controller.lights {
 }
 */
 
-sleep(1)
+
 
 // test purposes
 let bikeLight = controller.lights["0x0000000007e71ffd"]
 
 
+/*
+ controller.setLightAlias { (nameTaken) -> String in
+ var alias: String = ""
+ if nameTaken == true {
+ print("Alias name already taken")
+ }
+ print("Enter name for this light:")
+ let rawInput: String? = readLine()
+ if let stringAlias = rawInput {
+ alias = stringAlias
+ }
+ return alias
+ }
+ 
+ for (key, _) in controller.alias {
+ print(key)
+ }
+ */
 
-controller.setLightAlias { (nameTaken) -> String in
-    var alias: String = ""
-    if nameTaken == true {
-        print("Alias name already taken")
-    }
-    print("Enter name for this light:")
-    let rawInput: String? = readLine()
-    if let stringAlias = rawInput {
-        alias = stringAlias
-    }
-    return alias
-}
-
-for (key, _) in controller.alias {
-    print(key)
-}
 
 
 while runProgram == true {
@@ -87,18 +89,34 @@ while runProgram == true {
     case "flow":
         do {
             var flowExpressions = Method.set_colorFlow.CreateExpressions()
-            try flowExpressions.addState(expression: .rgb(value: 5, bright_val: 100, duration: 5000))
-            try flowExpressions.addState(expression: .rgb(value: 30000, bright_val: 100, duration: 2000))
-            try flowExpressions.addState(expression: .rgb(value: 160000, bright_val: 100, duration: 4000))
-            try flowExpressions.addState(expression: .rgb(value: 300000, bright_val: 100, duration: 3000))
+            try flowExpressions.addState(expression: .rgb(value: 11827280, bright_val: 10, duration: 130))
+            try flowExpressions.addState(expression: .rgb(value: 11827280, bright_val: 1, duration: 200))
+            try flowExpressions.addState(expression: .wait(duration: 130))
             
-            let message = try Method.set_colorFlow(.finite(count: 8), .returnPrevious, flowExpressions).string()
+            try flowExpressions.addState(expression: .rgb(value: 11827280, bright_val: 1, duration: 200))
+            
+            
+            try flowExpressions.addState(expression: .rgb(value: 11827280, bright_val: 50, duration: 90))
+            try flowExpressions.addState(expression: .wait(duration: 80))
+            try flowExpressions.addState(expression: .rgb(value: 11827280, bright_val: 1, duration: 200))
+            try flowExpressions.addState(expression: .wait(duration: 600))
+            
+            
+            let message = try Method.set_colorFlow(.finite(count: 16), .returnPrevious, flowExpressions).string()
             bikeLight?.communicate(message)
         }
         catch let error {
             print(error)
         }
         
+    case "flowOff":
+        do {
+            let message = Method.set_colorFlowStop().string()
+            bikeLight?.communicate(message)
+        }
+        catch let error {
+            print(error)
+        }
     case "allOn":
         for (_, value) in controller.lights {
             do {
@@ -152,7 +170,8 @@ while runProgram == true {
             catch let error {
                 print(error)
             }
-            usleep(100000)
+            // 1,000,000 in a second
+            usleep(100000) // 1/10th of a second
             hsv -= 2
         }
         
